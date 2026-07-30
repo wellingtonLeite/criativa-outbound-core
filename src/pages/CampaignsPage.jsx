@@ -11,7 +11,6 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
-  const [newCampaignLimit, setNewCampaignLimit] = useState(40);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -45,7 +44,6 @@ export default function CampaignsPage() {
         .from('campaigns')
         .insert({
           name: newCampaignName.trim(),
-          daily_send_limit: newCampaignLimit,
           user_id: user.id,
           status: 'draft'
         })
@@ -183,9 +181,9 @@ export default function CampaignsPage() {
             </div>
             
             <form onSubmit={handleCreateCampaign}>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: '32px' }}>
                 <label className="form-label">Nome da Campanha</label>
-                <input 
+                <input
                   type="text"
                   required
                   value={newCampaignName}
@@ -193,19 +191,11 @@ export default function CampaignsPage() {
                   className="form-input"
                   placeholder="Ex: Prospecção Q3"
                 />
+                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
+                  Limite de envio, parâmetros de extração e sequência de e-mails são configurados depois, dentro da campanha.
+                </p>
               </div>
-              <div className="form-group" style={{ marginBottom: '32px' }}>
-                <label className="form-label">Limite Diário de Envio</label>
-                <input 
-                  type="number"
-                  required
-                  min="1"
-                  value={newCampaignLimit}
-                  onChange={(e) => setNewCampaignLimit(Number(e.target.value))}
-                  className="form-input"
-                />
-              </div>
-              
+
               <div className="modal-footer">
                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
                   Cancelar
