@@ -262,15 +262,17 @@ export default function CampaignBuilderPage() {
         return;
       }
       const p = enriched.person || {};
-      const org = p.organization || person.organization || {};
+      const org = { ...(person.organization || {}), ...(p.organization || {}) };
       const { error } = await supabase.from('leads').upsert({
         campaign_id: id,
         email,
-        first_name: p.first_name || person.first_name,
+        first_name: p.first_name || person.first_name || null,
+        last_name: p.last_name || person.last_name || null,
         company_name: org.name || null,
         revenue_estimated: org.annual_revenue_printed || null,
         phone: p.sanitized_phone || org.primary_phone || org.phone || null,
         company_info: Object.keys(org).length ? org : null,
+        raw_data: enriched.person || null,
         person_info: {
           title: p.title || person.title || null,
           seniority: p.seniority || null,
@@ -322,23 +324,29 @@ export default function CampaignBuilderPage() {
       const rows = contacts
         .filter(c => !!c.email)
         .map(c => {
-          const org = c.organization || c.account || {};
+          // organization = dados mestres da empresa (descrição, indústrias, keywords, funcionários...)
+          // account = dados da conta Apollo do seu time sobre essa empresa (etapa, listas, origem...)
+          const org = { ...(c.organization || {}), ...(c.account || {}) };
           return {
             campaign_id: id,
             email: c.email,
             first_name: c.first_name || null,
+            last_name: c.last_name || null,
             company_name: c.organization_name || org.name || null,
             revenue_estimated: org.annual_revenue_printed || null,
             phone: c.sanitized_phone || org.primary_phone || org.phone || null,
             company_info: Object.keys(org).length ? org : null,
+            raw_data: c,
             person_info: {
-              last_name: c.last_name || null,
               title: c.title || null,
               headline: c.headline || null,
               linkedin_url: c.linkedin_url || null,
               twitter_url: c.twitter_url || null,
               raw_address: c.present_raw_address || null,
               phone_numbers: c.phone_numbers || null,
+              contact_stage_id: c.contact_stage_id || null,
+              label_ids: c.label_ids || null,
+              source: c.source_display_name || c.source || null,
             },
           };
         });
@@ -618,7 +626,7 @@ export default function CampaignBuilderPage() {
                 <tbody>
                   {leads.map(lead => (
                     <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ cursor: 'pointer' }}>
-                      <td style={{ color: '#e2e8f0' }}>{lead.first_name || '—'}</td>
+                      <td style={{ color: '#e2e8f0' }}>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || '—'}</td>
                       <td>{lead.email}</td>
                       <td>{lead.company_name || '—'}</td>
                       <td><span className={`badge badge-${lead.validation_status}`}>{lead.validation_status}</span></td>

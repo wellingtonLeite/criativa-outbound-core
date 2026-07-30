@@ -39,6 +39,7 @@ export default function LeadsPage() {
     return leads.filter(lead => {
       const matchSearch =
         (lead.first_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+        (lead.last_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
         (lead.email || '').toLowerCase().includes(searchText.toLowerCase()) ||
         (lead.company_name || '').toLowerCase().includes(searchText.toLowerCase());
 
@@ -132,7 +133,7 @@ export default function LeadsPage() {
               <tbody>
                 {filteredLeads.map(lead => (
                   <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ cursor: 'pointer' }}>
-                    <td style={{ color: '#e2e8f0', fontWeight: 500 }}>{lead.first_name || '—'}</td>
+                    <td style={{ color: '#e2e8f0', fontWeight: 500 }}>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || '—'}</td>
                     <td>{lead.email}</td>
                     <td>{lead.company_name || '—'}</td>
                     <td title={lead.campaigns?.name} style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

@@ -62,7 +62,7 @@ export default function LeadDetailModal({ lead, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
         <div className="modal-header">
-          <h2>{lead.first_name || 'Lead'} — {lead.email}</h2>
+          <h2>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Lead'} — {lead.email}</h2>
           <button onClick={onClose} className="btn-icon" style={{ border: 'none', background: 'transparent' }}>
             <X size={20} />
           </button>
@@ -123,6 +123,20 @@ export default function LeadDetailModal({ lead, onClose }) {
             <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Dados da Empresa (para personalização no n8n)</h3>
             {renderInfoEntries(lead.company_info)}
           </div>
+        )}
+
+        {lead.raw_data && (
+          <details style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginBottom: '20px' }}>
+            <summary style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', cursor: 'pointer' }}>
+              Ver todos os dados brutos recebidos da Apollo
+            </summary>
+            <pre style={{
+              marginTop: '12px', padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px',
+              fontSize: '0.7rem', color: '#94a3b8', maxHeight: '300px', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+            }}>
+              {JSON.stringify(lead.raw_data, null, 2)}
+            </pre>
+          </details>
         )}
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
