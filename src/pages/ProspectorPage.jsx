@@ -22,6 +22,8 @@ export default function ProspectorPage() {
     person_locations: '',
   });
 
+  const [errorLists, setErrorLists] = useState('');
+
   // Carrega as listas sempre que a aba mudar para 'lists'
   useEffect(() => {
     if (activeTab === 'lists') {
@@ -40,7 +42,9 @@ export default function ProspectorPage() {
     });
     
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Erro ao comunicar com Apollo');
+    if (!response.ok) {
+      throw new Error(data.error || data.message || `Erro do Apollo: ${response.status}`);
+    }
     return data;
   };
 
@@ -67,11 +71,13 @@ export default function ProspectorPage() {
 
   const fetchApolloLists = async () => {
     setLoadingLists(true);
+    setErrorLists('');
     try {
       const data = await callApolloProxy('get_lists');
       setApolloLists(data.labels || data.contact_lists || []);
     } catch (error) {
       console.error('Erro ao buscar listas:', error);
+      setErrorLists(error.message);
     } finally {
       setLoadingLists(false);
     }
@@ -260,10 +266,22 @@ export default function ProspectorPage() {
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
               <div className="spinner"></div>
             </div>
+          ) : errorLists ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '250px', color: '#f43f5e', textAlign: 'center' }}>
+              <List size={40} style={{ opacity: 0.8, marginBottom: '16px' }} />
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Erro ao carregar listas do Apollo</h3>
+              <p style={{ fontSize: '0.9rem', maxWidth: '500px' }}>
+                O Apollo bloqueou o acesso: <strong>{errorLists}</strong>
+              </p>
+              <p style={{ fontSize: '0.85rem', maxWidth: '500px', marginTop: '12px', color: '#94a3b8' }}>
+                Nota: Para acessar e criar listas de contato, a API Key configurada na página de "Integrações" 
+                precisa ser uma <strong>Master API Key</strong> do Apollo.io. Verifique suas permissões no Apollo.
+              </p>
+            </div>
           ) : apolloLists.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#64748b' }}>
               <List size={40} style={{ opacity: 0.2, marginBottom: '16px' }} />
-              <p style={{ fontSize: '0.9rem' }}>Você não tem listas ou ocorreu um erro ao carregar.</p>
+              <p style={{ fontSize: '0.9rem' }}>Você não tem listas no Apollo. Crie uma nova acima!</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
