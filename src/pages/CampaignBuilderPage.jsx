@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { callApolloProxy } from '../lib/apolloClient';
+import LeadDetailModal from '../components/LeadDetailModal';
 import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
 
 /* ============================================================
@@ -86,6 +87,8 @@ export default function CampaignBuilderPage() {
   const [apolloListsError, setApolloListsError] = useState('');
   const [importingListId, setImportingListId] = useState(null);
   const [importMessage, setImportMessage] = useState('');
+
+  const [selectedLead, setSelectedLead] = useState(null);
 
   useEffect(() => { fetchData(); }, [id]);
   useEffect(() => { fetchLeads(); }, [id]);
@@ -584,7 +587,7 @@ export default function CampaignBuilderPage() {
                 </thead>
                 <tbody>
                   {leads.map(lead => (
-                    <tr key={lead.id}>
+                    <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ cursor: 'pointer' }}>
                       <td style={{ color: '#e2e8f0' }}>{lead.first_name || '—'}</td>
                       <td>{lead.email}</td>
                       <td>{lead.company_name || '—'}</td>
@@ -663,6 +666,8 @@ export default function CampaignBuilderPage() {
           </button>
         </div>
       </div>
+
+      <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
     </div>
   );
 }

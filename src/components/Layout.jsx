@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Megaphone, Plug, Users, LogOut, Search } from 'lucide-react';
+import { LayoutDashboard, Megaphone, Plug, Users, LogOut, Search, Contact } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Layout() {
@@ -15,6 +15,7 @@ export default function Layout() {
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
+    { to: '/leads', icon: Contact, label: 'Leads' },
     { to: '/prospector', icon: Search, label: 'Prospecção' },
     { to: '/integrations', icon: Plug, label: 'Integrações' },
     { to: '/crm', icon: Users, label: 'CRM / Inbox' },
