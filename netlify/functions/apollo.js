@@ -16,15 +16,22 @@ export const handler = async (event, context) => {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
     // Authenticate user via Auth header
     const authHeader = event.headers.authorization;
     if (!authHeader) {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
     }
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Invalid token' }) };
