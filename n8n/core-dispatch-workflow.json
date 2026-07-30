@@ -56,7 +56,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const raw = $input.first().json;\nconst campaigns = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nreturn campaigns.map(c => ({ json: c }));"
+        "jsCode": "return $input.all();"
       }
     },
     {
@@ -140,6 +140,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [560, 400],
+      "alwaysOutputData": true,
+      "notes": "alwaysOutputData=true garante 1 item mesmo se a busca não achar nenhuma credencial (array vazio), para o node seguinte sempre rodar.",
       "parameters": {
         "method": "GET",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/credentials?user_id=eq.{{ $json.user_id }}&service_name=eq.resend&is_active=eq.true&order=created_at.desc&limit=1",
@@ -162,7 +164,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const campaign = $('Tem Quota?').item.json;\nconst raw = $input.first().json;\nconst creds = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nreturn [{ json: { ...campaign, resend_api_key: creds[0]?.api_key || null } }];"
+        "jsCode": "const campaign = $('Tem Quota?').item.json;\nconst raw = $input.first().json;\nconst arr = Array.isArray(raw) ? raw : [raw];\nreturn [{ json: { ...campaign, resend_api_key: arr[0]?.api_key || null } }];"
       }
     },
     {
@@ -171,7 +173,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [800, 560],
-      "notes": "Opcional — se o dono da campanha não tiver OpenRouter configurado, o e-mail usa só o template fixo.",
+      "alwaysOutputData": true,
+      "notes": "Opcional — se o dono da campanha não tiver OpenRouter configurado, o e-mail usa só o template fixo. alwaysOutputData=true garante 1 item mesmo sem credencial encontrada.",
       "parameters": {
         "method": "GET",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/credentials?user_id=eq.{{ $json.user_id }}&service_name=eq.openrouter&is_active=eq.true&order=created_at.desc&limit=1",
@@ -194,7 +197,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const campaign = $('Extrair Credencial').item.json;\nconst raw = $input.first().json;\nconst creds = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nreturn [{ json: { ...campaign, openrouter_api_key: creds[0]?.api_key || null } }];"
+        "jsCode": "const campaign = $('Extrair Credencial').item.json;\nconst raw = $input.first().json;\nconst arr = Array.isArray(raw) ? raw : [raw];\nreturn [{ json: { ...campaign, openrouter_api_key: arr[0]?.api_key || null } }];"
       }
     },
     {
@@ -250,7 +253,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const raw = $input.first().json;\nconst queue = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nconst campaign = $('Extrair Credencial OpenRouter').item.json;\nreturn queue.map(row => ({ json: { ...row, resend_api_key: campaign.resend_api_key, openrouter_api_key: campaign.openrouter_api_key } }));"
+        "jsCode": "const campaign = $('Extrair Credencial OpenRouter').item.json;\nreturn $input.all().map(item => ({ json: { ...item.json, resend_api_key: campaign.resend_api_key, openrouter_api_key: campaign.openrouter_api_key } }));"
       }
     },
     {
