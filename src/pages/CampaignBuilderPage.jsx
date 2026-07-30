@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { callApolloProxy } from '../lib/apolloClient';
+import { verifyEmailStatus } from '../lib/reoonClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
@@ -101,9 +102,26 @@ export default function CampaignBuilderPage() {
   const [importMessage, setImportMessage] = useState('');
 
   const [selectedLead, setSelectedLead] = useState(null);
+  const [scrapedTodayCount, setScrapedTodayCount] = useState(0);
 
   useEffect(() => { fetchData(); }, [id]);
   useEffect(() => { fetchLeads(); }, [id]);
+  useEffect(() => { fetchScrapedTodayCount(); }, [id]);
+
+  const fetchScrapedTodayCount = async () => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { count, error } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', id)
+      .gte('created_at', startOfDay.toISOString());
+    if (error) {
+      console.error('Erro ao contar leads raspados hoje:', error);
+      return;
+    }
+    setScrapedTodayCount(count || 0);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -277,6 +295,8 @@ export default function CampaignBuilderPage() {
     const p = enriched.person || {};
     const orgRaw = { ...(person.organization || {}), ...(p.organization || {}) };
     const org = { ...orgRaw, phone: normalizePhone(orgRaw.phone), primary_phone: normalizePhone(orgRaw.primary_phone) };
+    // Valida o e-mail via Reoon automaticamente (fica 'pending' se falhar/sem credencial)
+    const validation_status = await verifyEmailStatus(email);
     const { error } = await supabase.from('leads').upsert({
       campaign_id: id,
       email,
@@ -286,6 +306,7 @@ export default function CampaignBuilderPage() {
       revenue_estimated: org.annual_revenue_printed || null,
       phone: normalizePhone(p.sanitized_phone) || org.phone || org.primary_phone || null,
       company_info: Object.keys(org).length ? org : null,
+      validation_status,
       raw_data: enriched.person || null,
       person_info: {
         title: p.title || person.title || null,
@@ -318,8 +339,17 @@ export default function CampaignBuilderPage() {
   };
 
   const handleAddSelectedLeads = async () => {
-    const toAdd = searchResults.filter(p => selectedSearchIds.has(p.id));
-    if (toAdd.length === 0) return;
+    const selected = searchResults.filter(p => selectedSearchIds.has(p.id));
+    if (selected.length === 0) return;
+
+    const remainingQuota = Math.max(0, dailyScrapingLimit - scrapedTodayCount);
+    if (remainingQuota === 0) {
+      alert(`Limite diário de raspagem (${dailyScrapingLimit}) já foi atingido para esta campanha hoje.`);
+      return;
+    }
+    const toAdd = selected.slice(0, remainingQuota);
+    const truncated = selected.length - toAdd.length;
+
     setBulkAdding(true);
     setBulkProgress({ done: 0, total: toAdd.length });
     let added = 0;
@@ -334,8 +364,13 @@ export default function CampaignBuilderPage() {
     }
     setBulkAdding(false);
     setSelectedSearchIds(new Set());
-    showFeedback(`✓ ${added} de ${toAdd.length} leads adicionados!`);
+    showFeedback(
+      truncated > 0
+        ? `✓ ${added} de ${toAdd.length} adicionados — ${truncated} ficaram de fora pelo limite diário de raspagem (${dailyScrapingLimit}).`
+        : `✓ ${added} de ${toAdd.length} leads adicionados!`
+    );
     await fetchLeads();
+    await fetchScrapedTodayCount();
   };
 
   const fetchApolloListsForImport = async () => {
@@ -362,7 +397,7 @@ export default function CampaignBuilderPage() {
         setImportMessage('Nenhum contato encontrado nesta lista.');
         return;
       }
-      const rows = contacts
+      const allRows = contacts
         .filter(c => !!c.email)
         .map(c => {
           // organization = dados mestres da empresa (descrição, indústrias, keywords, funcionários...)
@@ -392,10 +427,45 @@ export default function CampaignBuilderPage() {
             },
           };
         });
+
+      // O limite diário de raspagem vale só para leads NOVOS — reimportar/atualizar
+      // um lead que já existe nesta campanha não consome a cota.
+      const { data: existing, error: existingError } = await supabase
+        .from('leads').select('email, validation_status').eq('campaign_id', id);
+      if (existingError) throw existingError;
+      const existingStatusByEmail = new Map((existing || []).map(l => [l.email, l.validation_status]));
+
+      // Leads já existentes mantêm a validação anterior (não gasta cota do Reoon de novo).
+      const existingRows = allRows
+        .filter(r => existingStatusByEmail.has(r.email))
+        .map(r => ({ ...r, validation_status: existingStatusByEmail.get(r.email) }));
+      const newRows = allRows.filter(r => !existingStatusByEmail.has(r.email));
+
+      const remainingQuota = Math.max(0, dailyScrapingLimit - scrapedTodayCount);
+      const newRowsToInsert = newRows.slice(0, remainingQuota);
+      const truncated = newRows.length - newRowsToInsert.length;
+
+      // Valida o e-mail dos leads novos via Reoon automaticamente (fica 'pending' se falhar/sem credencial)
+      for (const row of newRowsToInsert) {
+        row.validation_status = await verifyEmailStatus(row.email);
+      }
+
+      const rows = [...existingRows, ...newRowsToInsert];
+
+      if (rows.length === 0) {
+        setImportMessage(`Limite diário de raspagem (${dailyScrapingLimit}) já foi atingido para esta campanha hoje.`);
+        return;
+      }
+
       const { error } = await supabase.from('leads').upsert(rows, { onConflict: 'campaign_id,email' });
       if (error) throw error;
-      setImportMessage(`✓ ${rows.length} contatos importados/atualizados de "${list.name}"!`);
+      setImportMessage(
+        truncated > 0
+          ? `✓ ${rows.length} contatos importados/atualizados de "${list.name}" — ${truncated} novos ficaram de fora pelo limite diário de raspagem (${dailyScrapingLimit}).`
+          : `✓ ${rows.length} contatos importados/atualizados de "${list.name}"!`
+      );
       await fetchLeads();
+      await fetchScrapedTodayCount();
     } catch (error) {
       console.error('Erro ao importar lista:', error);
       setImportMessage('Erro ao importar: ' + error.message);
@@ -502,7 +572,9 @@ export default function CampaignBuilderPage() {
             <div className="form-group" style={{ marginBottom: 0, width: '200px' }}>
               <label className="form-label">Limite Diário de Raspagem</label>
               <input type="number" required min="1" value={dailyScrapingLimit} onChange={e => setDailyScrapingLimit(Number(e.target.value))} className="form-input" />
-              <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Máximo de contatos extraídos por dia</p>
+              <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                {scrapedTodayCount}/{dailyScrapingLimit} usados hoje
+              </p>
             </div>
             <button type="submit" disabled={isSavingSettings || searchingLeads} className="btn btn-primary">
               <Search size={16} /> {isSavingSettings ? 'Salvando...' : searchingLeads ? 'Buscando...' : 'Salvar e Buscar no Apollo'}
