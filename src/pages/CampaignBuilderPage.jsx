@@ -5,6 +5,15 @@ import { callApolloProxy } from '../lib/apolloClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
 
+// A Apollo às vezes devolve telefone como string, às vezes como
+// { number, sanitized_number } — normaliza sempre para string.
+const normalizePhone = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return value.sanitized_number || value.number || null;
+  return null;
+};
+
 /* ============================================================
    TagInput — Componente reutilizável para adicionar tags via Enter
    ============================================================ */
@@ -262,7 +271,8 @@ export default function CampaignBuilderPage() {
         return;
       }
       const p = enriched.person || {};
-      const org = { ...(person.organization || {}), ...(p.organization || {}) };
+      const orgRaw = { ...(person.organization || {}), ...(p.organization || {}) };
+      const org = { ...orgRaw, phone: normalizePhone(orgRaw.phone), primary_phone: normalizePhone(orgRaw.primary_phone) };
       const { error } = await supabase.from('leads').upsert({
         campaign_id: id,
         email,
@@ -270,7 +280,7 @@ export default function CampaignBuilderPage() {
         last_name: p.last_name || person.last_name || null,
         company_name: org.name || null,
         revenue_estimated: org.annual_revenue_printed || null,
-        phone: p.sanitized_phone || org.primary_phone || org.phone || null,
+        phone: normalizePhone(p.sanitized_phone) || org.phone || org.primary_phone || null,
         company_info: Object.keys(org).length ? org : null,
         raw_data: enriched.person || null,
         person_info: {
@@ -326,7 +336,8 @@ export default function CampaignBuilderPage() {
         .map(c => {
           // organization = dados mestres da empresa (descrição, indústrias, keywords, funcionários...)
           // account = dados da conta Apollo do seu time sobre essa empresa (etapa, listas, origem...)
-          const org = { ...(c.organization || {}), ...(c.account || {}) };
+          const orgRaw = { ...(c.organization || {}), ...(c.account || {}) };
+          const org = { ...orgRaw, phone: normalizePhone(orgRaw.phone), primary_phone: normalizePhone(orgRaw.primary_phone) };
           return {
             campaign_id: id,
             email: c.email,
@@ -334,7 +345,7 @@ export default function CampaignBuilderPage() {
             last_name: c.last_name || null,
             company_name: c.organization_name || org.name || null,
             revenue_estimated: org.annual_revenue_printed || null,
-            phone: c.sanitized_phone || org.primary_phone || org.phone || null,
+            phone: normalizePhone(c.sanitized_phone) || org.phone || org.primary_phone || null,
             company_info: Object.keys(org).length ? org : null,
             raw_data: c,
             person_info: {
@@ -343,7 +354,7 @@ export default function CampaignBuilderPage() {
               linkedin_url: c.linkedin_url || null,
               twitter_url: c.twitter_url || null,
               raw_address: c.present_raw_address || null,
-              phone_numbers: c.phone_numbers || null,
+              phone_numbers: (c.phone_numbers || []).map(normalizePhone).filter(Boolean),
               contact_stage_id: c.contact_stage_id || null,
               label_ids: c.label_ids || null,
               source: c.source_display_name || c.source || null,

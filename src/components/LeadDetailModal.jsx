@@ -1,6 +1,108 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Linkedin, Twitter, Globe } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+const joinList = (value) => {
+  if (!value) return null;
+  if (Array.isArray(value)) return value.length ? value.join(', ') : null;
+  return String(value);
+};
+
+const location = (obj) => obj.raw_address || [obj.city, obj.state, obj.country].filter(Boolean).join(', ') || null;
+
+// Campos curados exibidos como texto simples (label em PT-BR + como extrair o valor)
+const PERSON_FIELDS = [
+  { label: 'Cargo', get: (p) => p.title },
+  { label: 'Outros Cargos / Headline', get: (p) => p.headline },
+  { label: 'Localização', get: (p) => location(p) },
+  { label: 'Senioridade', get: (p) => p.seniority },
+  { label: 'Departamento', get: (p) => joinList(p.departments) },
+  { label: 'Função', get: (p) => joinList(p.functions) },
+  { label: 'Telefones Adicionais', get: (p) => joinList(p.phone_numbers) },
+  { label: 'Origem', get: (p) => p.source },
+];
+
+const COMPANY_FIELDS = [
+  { label: 'Domínio', get: (c) => c.domain || c.primary_domain },
+  { label: 'Localização', get: (c) => location(c) },
+  { label: 'Ano de Fundação', get: (c) => c.founded_year },
+  { label: 'Funcionários', get: (c) => c.estimated_num_employees },
+  { label: 'Indústria', get: (c) => c.industry || joinList(c.industries) },
+  { label: 'Palavras-chave', get: (c) => joinList(c.keywords) },
+  { label: 'Tecnologias', get: (c) => joinList(c.technology_names) },
+  { label: 'Descrição', get: (c) => c.short_description || c.description, long: true },
+];
+
+// Campos que viram link clicável em vez de texto
+const PERSON_LINKS = [
+  { label: 'LinkedIn', get: (p) => p.linkedin_url, icon: Linkedin },
+  { label: 'X / Twitter', get: (p) => p.twitter_url, icon: Twitter },
+];
+
+const COMPANY_LINKS = [
+  { label: 'Site', get: (c) => c.website_url, icon: Globe },
+  { label: 'LinkedIn da Empresa', get: (c) => c.linkedin_url, icon: Linkedin },
+];
+
+function collectInfoEntries(data, fields, links) {
+  const textEntries = fields
+    .map((f) => ({ label: f.label, value: f.get(data), long: f.long }))
+    .filter((e) => e.value !== null && e.value !== undefined && e.value !== '');
+  const linkEntries = (links || [])
+    .map((f) => ({ label: f.label, value: f.get(data), icon: f.icon }))
+    .filter((e) => !!e.value);
+  return { textEntries, linkEntries };
+}
+
+function InfoGrid({ data, fields, links }) {
+  const { textEntries, linkEntries } = collectInfoEntries(data, fields, links);
+  if (textEntries.length === 0 && linkEntries.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {linkEntries.length > 0 && (
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          {linkEntries.map(({ label, value, icon: Icon }) => (
+            <a key={label} href={value} target="_blank" rel="noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#00d4ff' }}>
+              <Icon size={14} /> {label}
+            </a>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+        {textEntries.map(({ label, value, long }) => (
+          <div key={label} style={long ? { gridColumn: '1 / -1' } : undefined}>
+            <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</div>
+            <div style={{ fontSize: '0.8rem', color: '#e2e8f0', wordBreak: 'break-word' }}>{value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompanyAvatar({ name, logoUrl }) {
+  const initial = (name || '?').charAt(0).toUpperCase();
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt={name || 'Empresa'}
+        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', background: '#1e293b', flexShrink: 0 }}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
+  return (
+    <div style={{
+      width: '40px', height: '40px', borderRadius: '50%', background: '#1e293b', color: '#00d4ff',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0
+    }}>
+      {initial}
+    </div>
+  );
+}
 
 export default function LeadDetailModal({ lead, onClose }) {
   const [logs, setLogs] = useState([]);
@@ -29,40 +131,26 @@ export default function LeadDetailModal({ lead, onClose }) {
 
   if (!lead) return null;
 
-  const formatLabel = (key) => key
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const companyInfo = lead.company_info || {};
+  const personInfo = lead.person_info || {};
+  const fullName = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Lead';
 
-  const formatValue = (value) => {
-    if (value === null || value === undefined || value === '') return null;
-    if (Array.isArray(value)) return value.length ? value.join(', ') : null;
-    if (typeof value === 'object') return Object.keys(value).length ? JSON.stringify(value) : null;
-    return String(value);
-  };
-
-  const renderInfoEntries = (obj) => {
-    if (!obj) return null;
-    const entries = Object.entries(obj)
-      .map(([key, value]) => [key, formatValue(value)])
-      .filter(([, value]) => value !== null);
-    if (entries.length === 0) return null;
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
-        {entries.map(([key, value]) => (
-          <div key={key}>
-            <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{formatLabel(key)}</div>
-            <div style={{ fontSize: '0.8rem', color: '#e2e8f0', wordBreak: 'break-word' }}>{value}</div>
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const personEntries = collectInfoEntries(personInfo, PERSON_FIELDS, PERSON_LINKS);
+  const hasPersonInfo = personEntries.textEntries.length > 0 || personEntries.linkEntries.length > 0;
+  const companyEntries = collectInfoEntries(companyInfo, COMPANY_FIELDS, COMPANY_LINKS);
+  const hasCompanyInfo = companyEntries.textEntries.length > 0 || companyEntries.linkEntries.length > 0;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
         <div className="modal-header">
-          <h2>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Lead'} — {lead.email}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <CompanyAvatar name={lead.company_name} logoUrl={companyInfo.logo_url} />
+            <div>
+              <h2 style={{ marginBottom: '2px' }}>{fullName}</h2>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{lead.email}</p>
+            </div>
+          </div>
           <button onClick={onClose} className="btn-icon" style={{ border: 'none', background: 'transparent' }}>
             <X size={20} />
           </button>
@@ -80,12 +168,12 @@ export default function LeadDetailModal({ lead, onClose }) {
             <p style={{ color: '#e2e8f0' }}>{lead.company_name || '—'}</p>
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Receita Estimada</label>
-            <p style={{ color: '#e2e8f0' }}>{lead.revenue_estimated || '—'}</p>
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Telefone</label>
             <p style={{ color: '#e2e8f0' }}>{lead.phone || '—'}</p>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Receita Estimada</label>
+            <p style={{ color: '#e2e8f0' }}>{lead.revenue_estimated || '—'}</p>
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Validação do E-mail</label>
@@ -111,23 +199,23 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
         </div>
 
-        {renderInfoEntries(lead.person_info) && (
+        {hasPersonInfo && (
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Dados Adicionais da Pessoa</h3>
-            {renderInfoEntries(lead.person_info)}
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Sobre a Pessoa</h3>
+            <InfoGrid data={personInfo} fields={PERSON_FIELDS} links={PERSON_LINKS} />
           </div>
         )}
 
-        {renderInfoEntries(lead.company_info) && (
+        {hasCompanyInfo && (
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Dados da Empresa (para personalização no n8n)</h3>
-            {renderInfoEntries(lead.company_info)}
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Sobre a Empresa (para personalização no n8n)</h3>
+            <InfoGrid data={companyInfo} fields={COMPANY_FIELDS} links={COMPANY_LINKS} />
           </div>
         )}
 
         {lead.raw_data && (
           <details style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginBottom: '20px' }}>
-            <summary style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', cursor: 'pointer' }}>
+            <summary style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8', cursor: 'pointer' }}>
               Ver todos os dados brutos recebidos da Apollo
             </summary>
             <pre style={{
