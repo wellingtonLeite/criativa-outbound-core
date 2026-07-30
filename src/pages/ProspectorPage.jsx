@@ -74,7 +74,8 @@ export default function ProspectorPage() {
     setErrorLists('');
     try {
       const data = await callApolloProxy('get_lists');
-      setApolloLists(data.labels || data.contact_lists || []);
+      // GET /v1/labels devolve o array diretamente na raiz (sem wrapper "labels"/"contact_lists")
+      setApolloLists(Array.isArray(data) ? data : (data.contact_lists || data.labels || data.lists || []));
     } catch (error) {
       console.error('Erro ao buscar listas:', error);
       setErrorLists(error.message);
@@ -88,7 +89,7 @@ export default function ProspectorPage() {
     if (!newListName.trim()) return;
     setCreatingList(true);
     try {
-      await callApolloProxy('create_list', { name: newListName.trim() });
+      await callApolloProxy('create_list', { name: newListName.trim(), modality: 'contacts' });
       setNewListName('');
       setShowListModal(false);
       await fetchApolloLists();
@@ -291,8 +292,7 @@ export default function ProspectorPage() {
                     {list.name}
                   </h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', color: '#94a3b8', fontSize: '0.85rem' }}>
-                    <span>Contatos: <strong style={{ color: '#fff' }}>{list.num_contacts || 0}</strong></span>
-                    <span>Empresas: <strong style={{ color: '#fff' }}>{list.num_accounts || 0}</strong></span>
+                    <span>{list.modality === 'accounts' ? 'Empresas' : 'Contatos'}: <strong style={{ color: '#fff' }}>{list.cached_count || 0}</strong></span>
                   </div>
                 </div>
               ))}
