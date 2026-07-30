@@ -112,6 +112,7 @@ export default function IntegrationsPage() {
     apollo: { name: 'Apollo.io', color: '#3b82f6', description: 'Prospecção e enriquecimento de leads' },
     reoon: { name: 'Reoon', color: '#10b981', description: 'Verificação de e-mails' },
     resend: { name: 'Resend', color: '#7c3aed', description: 'Envio de e-mails transacionais' },
+    openrouter: { name: 'OpenRouter', color: '#00d4ff', description: 'IA para personalização dos e-mails (n8n)' },
     instantly: { name: 'Instantly', color: '#f59e0b', description: 'Cold email em escala' },
     smartlead: { name: 'Smartlead', color: '#f43f5e', description: 'Automação de outbound' },
   };
@@ -232,6 +233,7 @@ export default function IntegrationsPage() {
                   <option value="apollo">Apollo.io — Prospecção</option>
                   <option value="reoon">Reoon — Verificação de E-mails</option>
                   <option value="resend">Resend — Envio Transacional</option>
+                  <option value="openrouter">OpenRouter — IA para personalização</option>
                   <option value="instantly">Instantly — Cold Email</option>
                   <option value="smartlead">Smartlead — Outbound</option>
                 </select>

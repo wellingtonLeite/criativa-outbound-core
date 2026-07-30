@@ -166,6 +166,38 @@
       }
     },
     {
+      "id": "http_get_openrouter_cred",
+      "name": "Buscar Credencial OpenRouter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 560],
+      "notes": "Opcional — se o dono da campanha não tiver OpenRouter configurado, o e-mail usa só o template fixo.",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/credentials?user_id=eq.{{ $json.user_id }}&service_name=eq.openrouter&is_active=eq.true&order=created_at.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code_extract_openrouter_cred",
+      "name": "Extrair Credencial OpenRouter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 560],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const campaign = $('Extrair Credencial').item.json;\nconst raw = $input.first().json;\nconst creds = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nreturn [{ json: { ...campaign, openrouter_api_key: creds[0]?.api_key || null } }];"
+      }
+    },
+    {
       "id": "if_has_resend",
       "name": "Tem Credencial Resend?",
       "type": "n8n-nodes-base.if",
@@ -218,7 +250,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const raw = $input.first().json;\nconst queue = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nconst campaign = $('Extrair Credencial').item.json;\nreturn queue.map(row => ({ json: { ...row, resend_api_key: campaign.resend_api_key } }));"
+        "jsCode": "const raw = $input.first().json;\nconst queue = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nconst campaign = $('Extrair Credencial OpenRouter').item.json;\nreturn queue.map(row => ({ json: { ...row, resend_api_key: campaign.resend_api_key, openrouter_api_key: campaign.openrouter_api_key } }));"
       }
     },
     {
@@ -238,10 +270,80 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [2040, 200],
+      "notes": "Monta o e-mail base (fallback) por substituição literal. Se houver credencial OpenRouter, os nodes seguintes tentam gerar uma versão personalizada por IA e sobrescrevem email_subject/email_html.",
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Configuração').first().json;\nconst row = $input.first().json;\nconst fill = (tpl) => (tpl || '')\n  .replaceAll('{{first_name}}', row.lead_first_name || '')\n  .replaceAll('{{company_name}}', row.lead_company || '');\nreturn [{ json: {\n  ...row,\n  email_subject: fill(row.subject),\n  email_html: fill(row.body_html),\n  resend_from: cfg.resend_from,\n} }];"
+        "jsCode": "const cfg = $('Configuração').first().json;\nconst row = $input.first().json;\nconst fill = (tpl) => (tpl || '')\n  .replaceAll('{{first_name}}', row.lead_first_name || '')\n  .replaceAll('{{company_name}}', row.lead_company || '');\nconst fallbackSubject = fill(row.subject);\nconst fallbackHtml = fill(row.body_html);\nreturn [{ json: {\n  ...row,\n  fallback_subject: fallbackSubject,\n  fallback_html: fallbackHtml,\n  email_subject: fallbackSubject,\n  email_html: fallbackHtml,\n  resend_from: cfg.resend_from,\n} }];"
+      }
+    },
+    {
+      "id": "if_has_openrouter",
+      "name": "Tem Credencial OpenRouter?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2280, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond_openrouter",
+              "leftValue": "={{ $json.openrouter_api_key }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code_build_prompt",
+      "name": "Montar Prompt IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 100],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const row = $input.first().json;\nconst company = row.company_info || {};\nconst person = row.person_info || {};\nconst details = [\n  company.industry ? `Indústria: ${company.industry}` : null,\n  (company.short_description || company.description) ? `Descrição da empresa: ${company.short_description || company.description}` : null,\n  Array.isArray(company.keywords) && company.keywords.length ? `Palavras-chave: ${company.keywords.slice(0, 8).join(', ')}` : null,\n  company.estimated_num_employees ? `Porte: ${company.estimated_num_employees} funcionários` : null,\n  person.title ? `Cargo do contato: ${person.title}` : null,\n  person.seniority ? `Senioridade: ${person.seniority}` : null,\n].filter(Boolean).join('\\n');\n\nconst prompt = `Você é um redator de cold email B2B em português do Brasil. Reescreva o e-mail abaixo para ficar mais pessoal e relevante para esta empresa específica, mantendo a mesma intenção/oferta e um tamanho aproximado. Não invente dados que não foram fornecidos.\n\nNome do lead: ${row.lead_first_name || ''}\nEmpresa: ${row.lead_company || ''}\n${details || 'Nenhum dado adicional disponível sobre a empresa.'}\n\nE-mail base:\nAssunto: ${row.fallback_subject}\nCorpo (HTML): ${row.fallback_html}\n\nResponda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:\n{\"subject\": \"...\", \"html\": \"...\"}`;\n\nreturn [{ json: { ...row, ai_prompt: prompt } }];"
+      }
+    },
+    {
+      "id": "http_call_openrouter",
+      "name": "Gerar E-mail com IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2760, 100],
+      "notes": "Modelo gratuito da OpenRouter. Troque em model se este ficar indisponível — veja https://openrouter.ai/models?max_price=0",
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.openrouter_api_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { model: 'google/gemma-4-31b-it:free', messages: [ { role: 'user', content: $json.ai_prompt } ] } }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "code_apply_ai_email",
+      "name": "Aplicar E-mail da IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3000, 100],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const original = $('Montar Prompt IA').item.json;\nconst response = $input.first().json;\nlet subject = original.fallback_subject;\nlet html = original.fallback_html;\ntry {\n  const content = response.choices?.[0]?.message?.content;\n  if (content) {\n    const cleaned = content.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();\n    const parsed = JSON.parse(cleaned);\n    if (parsed.subject && parsed.html) {\n      subject = parsed.subject;\n      html = parsed.html;\n    }\n  }\n} catch (e) {\n  // Resposta da IA inválida — mantém o fallback do template fixo\n}\nreturn [{ json: { ...original, email_subject: subject, email_html: html } }];"
       }
     },
     {
@@ -249,7 +351,7 @@
       "name": "Enviar via Resend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2280, 200],
+      "position": [3240, 200],
       "parameters": {
         "method": "POST",
         "url": "https://api.resend.com/emails",
@@ -271,7 +373,7 @@
       "name": "Registrar Envio",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2520, 200],
+      "position": [3480, 200],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/outreach_logs",
@@ -294,7 +396,7 @@
       "name": "Atualizar Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2760, 200],
+      "position": [3720, 200],
       "parameters": {
         "method": "PATCH",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/leads?id=eq.{{ $('Montar E-mail').item.json.lead_id }}",
@@ -348,6 +450,12 @@
       "main": [[{ "node": "Extrair Credencial", "type": "main", "index": 0 }]]
     },
     "Extrair Credencial": {
+      "main": [[{ "node": "Buscar Credencial OpenRouter", "type": "main", "index": 0 }]]
+    },
+    "Buscar Credencial OpenRouter": {
+      "main": [[{ "node": "Extrair Credencial OpenRouter", "type": "main", "index": 0 }]]
+    },
+    "Extrair Credencial OpenRouter": {
       "main": [[{ "node": "Tem Credencial Resend?", "type": "main", "index": 0 }]]
     },
     "Tem Credencial Resend?": {
@@ -369,6 +477,21 @@
       ]
     },
     "Montar E-mail": {
+      "main": [[{ "node": "Tem Credencial OpenRouter?", "type": "main", "index": 0 }]]
+    },
+    "Tem Credencial OpenRouter?": {
+      "main": [
+        [{ "node": "Montar Prompt IA", "type": "main", "index": 0 }],
+        [{ "node": "Enviar via Resend", "type": "main", "index": 0 }]
+      ]
+    },
+    "Montar Prompt IA": {
+      "main": [[{ "node": "Gerar E-mail com IA", "type": "main", "index": 0 }]]
+    },
+    "Gerar E-mail com IA": {
+      "main": [[{ "node": "Aplicar E-mail da IA", "type": "main", "index": 0 }]]
+    },
+    "Aplicar E-mail da IA": {
       "main": [[{ "node": "Enviar via Resend", "type": "main", "index": 0 }]]
     },
     "Enviar via Resend": {
