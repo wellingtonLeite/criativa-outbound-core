@@ -1,0 +1,387 @@
+{
+  "name": "CORE - Disparo Automático (Etapa 4)",
+  "nodes": [
+    {
+      "id": "trigger_schedule",
+      "name": "A cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1400, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "minutes", "minutesInterval": 15 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "config",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1160, 300],
+      "notes": "EDITE estes 4 valores antes de ativar o workflow.",
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{\n  json: {\n    supabase_url: 'https://SEU-PROJECT-REF.supabase.co',\n    supabase_service_role_key: 'COLE_AQUI_A_SERVICE_ROLE_KEY',\n    resend_from: 'Nome da Empresa <onboarding@seudominio.com>',\n  }\n}];"
+      }
+    },
+    {
+      "id": "http_get_campaigns",
+      "name": "Buscar Campanhas Ativas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-920, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.supabase_url }}/rest/v1/campaigns?status=eq.active&select=*",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $json.supabase_service_role_key }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code_normalize_campaigns",
+      "name": "Normalizar Campanhas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 300],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $input.first().json;\nconst campaigns = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nreturn campaigns.map(c => ({ json: c }));"
+      }
+    },
+    {
+      "id": "loop_campaigns",
+      "name": "Loop Campanhas",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-440, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "no_op_end",
+      "name": "Fim",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-200, 140],
+      "parameters": {}
+    },
+    {
+      "id": "http_get_sent_today",
+      "name": "Quota Enviada Hoje",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-200, 460],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/rpc/get_emails_sent_today_for_campaign",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_campaign_id: $json.id } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "code_remaining_quota",
+      "name": "Calcular Quota Restante",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 460],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const campaign = $('Loop Campanhas').item.json;\nconst raw = $input.first().json;\nconst sentToday = typeof raw === 'number' ? raw : (raw.data ?? 0);\nconst remaining = Math.max(0, (campaign.daily_send_limit || 0) - sentToday);\nreturn [{ json: { ...campaign, remaining_quota: remaining } }];"
+      }
+    },
+    {
+      "id": "if_has_quota",
+      "name": "Tem Quota?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [280, 460],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond_quota",
+              "leftValue": "={{ $json.remaining_quota }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http_get_resend_cred",
+      "name": "Buscar Credencial Resend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/credentials?user_id=eq.{{ $json.user_id }}&service_name=eq.resend&is_active=eq.true&order=created_at.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code_extract_cred",
+      "name": "Extrair Credencial",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 400],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const campaign = $('Tem Quota?').item.json;\nconst raw = $input.first().json;\nconst creds = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nreturn [{ json: { ...campaign, resend_api_key: creds[0]?.api_key || null } }];"
+      }
+    },
+    {
+      "id": "if_has_resend",
+      "name": "Tem Credencial Resend?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1040, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond_resend",
+              "leftValue": "={{ $json.resend_api_key }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http_get_send_queue",
+      "name": "Buscar Fila de Envio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 340],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/rpc/get_send_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_campaign_id: $json.id, p_limit: $json.remaining_quota } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "code_normalize_queue",
+      "name": "Normalizar Fila",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 340],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $input.first().json;\nconst queue = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);\nconst campaign = $('Extrair Credencial').item.json;\nreturn queue.map(row => ({ json: { ...row, resend_api_key: campaign.resend_api_key } }));"
+      }
+    },
+    {
+      "id": "loop_leads",
+      "name": "Loop Leads",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1800, 340],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "code_build_email",
+      "name": "Montar E-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2040, 200],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Configuração').first().json;\nconst row = $input.first().json;\nconst fill = (tpl) => (tpl || '')\n  .replaceAll('{{first_name}}', row.lead_first_name || '')\n  .replaceAll('{{company_name}}', row.lead_company || '');\nreturn [{ json: {\n  ...row,\n  email_subject: fill(row.subject),\n  email_html: fill(row.body_html),\n  resend_from: cfg.resend_from,\n} }];"
+      }
+    },
+    {
+      "id": "http_send_resend",
+      "name": "Enviar via Resend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2280, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.resend_api_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { from: $json.resend_from, to: [$json.lead_email], subject: $json.email_subject, html: $json.email_html } }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http_log_outreach",
+      "name": "Registrar Envio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2520, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/outreach_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { lead_id: $('Montar E-mail').item.json.lead_id, template_id: $('Montar E-mail').item.json.template_id, event_type: 'sent' } }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http_update_lead",
+      "name": "Atualizar Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2760, 200],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/leads?id=eq.{{ $('Montar E-mail').item.json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { current_step: $('Montar E-mail').item.json.next_step, last_contacted_at: new Date().toISOString(), funnel_status: 'in_sequence' } }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "A cada 15 minutos": {
+      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+    },
+    "Configuração": {
+      "main": [[{ "node": "Buscar Campanhas Ativas", "type": "main", "index": 0 }]]
+    },
+    "Buscar Campanhas Ativas": {
+      "main": [[{ "node": "Normalizar Campanhas", "type": "main", "index": 0 }]]
+    },
+    "Normalizar Campanhas": {
+      "main": [[{ "node": "Loop Campanhas", "type": "main", "index": 0 }]]
+    },
+    "Loop Campanhas": {
+      "main": [
+        [{ "node": "Fim", "type": "main", "index": 0 }],
+        [{ "node": "Quota Enviada Hoje", "type": "main", "index": 0 }]
+      ]
+    },
+    "Quota Enviada Hoje": {
+      "main": [[{ "node": "Calcular Quota Restante", "type": "main", "index": 0 }]]
+    },
+    "Calcular Quota Restante": {
+      "main": [[{ "node": "Tem Quota?", "type": "main", "index": 0 }]]
+    },
+    "Tem Quota?": {
+      "main": [
+        [{ "node": "Buscar Credencial Resend", "type": "main", "index": 0 }],
+        [{ "node": "Loop Campanhas", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Credencial Resend": {
+      "main": [[{ "node": "Extrair Credencial", "type": "main", "index": 0 }]]
+    },
+    "Extrair Credencial": {
+      "main": [[{ "node": "Tem Credencial Resend?", "type": "main", "index": 0 }]]
+    },
+    "Tem Credencial Resend?": {
+      "main": [
+        [{ "node": "Buscar Fila de Envio", "type": "main", "index": 0 }],
+        [{ "node": "Loop Campanhas", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Fila de Envio": {
+      "main": [[{ "node": "Normalizar Fila", "type": "main", "index": 0 }]]
+    },
+    "Normalizar Fila": {
+      "main": [[{ "node": "Loop Leads", "type": "main", "index": 0 }]]
+    },
+    "Loop Leads": {
+      "main": [
+        [{ "node": "Loop Campanhas", "type": "main", "index": 0 }],
+        [{ "node": "Montar E-mail", "type": "main", "index": 0 }]
+      ]
+    },
+    "Montar E-mail": {
+      "main": [[{ "node": "Enviar via Resend", "type": "main", "index": 0 }]]
+    },
+    "Enviar via Resend": {
+      "main": [[{ "node": "Registrar Envio", "type": "main", "index": 0 }]]
+    },
+    "Registrar Envio": {
+      "main": [[{ "node": "Atualizar Lead", "type": "main", "index": 0 }]]
+    },
+    "Atualizar Lead": {
+      "main": [[{ "node": "Loop Leads", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

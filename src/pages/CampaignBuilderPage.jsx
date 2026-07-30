@@ -87,6 +87,7 @@ export default function CampaignBuilderPage() {
   const [leadsSubTab, setLeadsSubTab] = useState('import'); // 'import' | 'saved'
   const [leads, setLeads] = useState([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [revalidatingPending, setRevalidatingPending] = useState(false);
 
   const [searchResults, setSearchResults] = useState([]);
   const [searchingLeads, setSearchingLeads] = useState(false);
@@ -266,6 +267,34 @@ export default function CampaignBuilderPage() {
     }
   };
 
+  const handleRevalidatePendingLeads = async () => {
+    const pending = leads.filter(l => l.validation_status === 'pending');
+    if (pending.length === 0) return;
+    setRevalidatingPending(true);
+    try {
+      const statusByEmail = await verifyEmailsBulk(pending.map(l => l.email), { maxWaitMs: 120000 });
+      let resolved = 0;
+      for (const lead of pending) {
+        const newStatus = statusByEmail.get(lead.email) || 'pending';
+        if (newStatus === 'pending') continue;
+        resolved++;
+        const update = { validation_status: newStatus };
+        // Só avança para a sequência se ainda estava no início (nunca tinha sido validado antes)
+        if (newStatus === 'valid' && lead.funnel_status === 'scraped') {
+          update.funnel_status = 'in_sequence';
+        }
+        await supabase.from('leads').update(update).eq('id', lead.id);
+      }
+      showFeedback(`✓ ${resolved} de ${pending.length} leads pendentes foram validados.`);
+      await fetchLeads();
+    } catch (error) {
+      console.error('Erro ao revalidar leads pendentes:', error);
+      alert('Erro ao revalidar leads pendentes: ' + error.message);
+    } finally {
+      setRevalidatingPending(false);
+    }
+  };
+
   const handleSearchLeads = async () => {
     setSearchingLeads(true);
     setSearchErrorMsg('');
@@ -297,6 +326,15 @@ export default function CampaignBuilderPage() {
     const org = { ...orgRaw, phone: normalizePhone(orgRaw.phone), primary_phone: normalizePhone(orgRaw.primary_phone) };
     // Valida o e-mail via Reoon automaticamente (fica 'pending' se falhar/sem credencial)
     const validation_status = await verifyEmailStatus(email);
+
+    // Um lead novo com e-mail válido já entra pronto para a sequência de disparo
+    // (get_send_queue só pega leads em 'in_sequence'). Leads que já existiam mantêm
+    // o funnel_status atual — não retrocede quem já avançou (respondeu, agendou etc).
+    const { data: alreadyExists } = await supabase
+      .from('leads').select('id').eq('campaign_id', id).eq('email', email).maybeSingle();
+    const funnelStatusUpdate = (!alreadyExists && validation_status === 'valid')
+      ? { funnel_status: 'in_sequence' } : {};
+
     const { error } = await supabase.from('leads').upsert({
       campaign_id: id,
       email,
@@ -307,6 +345,7 @@ export default function CampaignBuilderPage() {
       phone: normalizePhone(p.sanitized_phone) || org.phone || org.primary_phone || null,
       company_info: Object.keys(org).length ? org : null,
       validation_status,
+      ...funnelStatusUpdate,
       raw_data: enriched.person || null,
       person_info: {
         title: p.title || person.title || null,
@@ -452,6 +491,11 @@ export default function CampaignBuilderPage() {
         const statusByEmail = await verifyEmailsBulk(newRowsToInsert.map(r => r.email));
         for (const row of newRowsToInsert) {
           row.validation_status = statusByEmail.get(row.email) || 'pending';
+          // Lead novo com e-mail válido já entra pronto para a sequência de disparo
+          // (get_send_queue só pega leads em 'in_sequence').
+          if (row.validation_status === 'valid') {
+            row.funnel_status = 'in_sequence';
+          }
         }
       }
 
@@ -745,7 +789,21 @@ export default function CampaignBuilderPage() {
               Nenhum lead adicionado ainda. Busque no Apollo ou importe uma lista acima.
             </p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div>
+              {leads.some(l => l.validation_status === 'pending') && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                  <button
+                    onClick={handleRevalidatePendingLeads}
+                    disabled={revalidatingPending}
+                    className="btn btn-sm btn-secondary"
+                  >
+                    {revalidatingPending
+                      ? 'Revalidando...'
+                      : `Revalidar Pendentes (${leads.filter(l => l.validation_status === 'pending').length})`}
+                  </button>
+                </div>
+              )}
+              <div style={{ overflowX: 'auto' }}>
               <table className="data-table">
                 <thead>
                   <tr>
@@ -773,6 +831,7 @@ export default function CampaignBuilderPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )
         )}

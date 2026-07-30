@@ -4,6 +4,17 @@ Este documento descreve o contrato de dados que o **CORE** expõe via Supabase p
 
 O CORE não roda o motor de disparo — ele só garante que os dados e as funções abaixo estejam prontos e corretos para o n8n consumir.
 
+## Workflow pronto para importar
+
+O arquivo [`n8n/core-dispatch-workflow.json`](n8n/core-dispatch-workflow.json) implementa todo o fluxo descrito abaixo, pronto para importar no n8n (Workflows → Import from File/URL).
+
+**Antes de ativar**, abra o node **"Configuração"** (logo após o gatilho) e edite os 3 valores:
+- `supabase_url` — URL do seu projeto Supabase
+- `supabase_service_role_key` — a Service Role Key (Supabase → Project Settings → API → `service_role`), **nunca** a anon key
+- `resend_from` — o remetente que vai aparecer nos e-mails (ex: `"Sua Empresa <contato@seudominio.com>"`, precisa ser um domínio verificado no Resend)
+
+Esse workflow foi montado com base na documentação oficial da Reoon/Resend/PostgREST, mas não pôde ser testado ao vivo (não há uma instância n8n disponível neste ambiente). Ao importar, revise o resultado de cada node no canvas antes de ativar — se algum node acusar "parâmetros desatualizados", o próprio n8n oferece a correção com um clique.
+
 ## Autenticação
 
 Todas as chamadas ao Supabase devem usar a **Service Role Key** do projeto (nunca a `anon key`), para bypassar o RLS e ter acesso a todas as campanhas de todos os usuários:
@@ -86,7 +97,7 @@ Body: {
 
 ## Observações importantes
 
-- **Um lead por vez, com tratamento de erro isolado**: se o envio de um lead falhar (Resend fora do ar, e-mail rejeitado), registre o erro e siga para o próximo — não deixe uma falha travar a campanha inteira.
-- **Primeiro envio de um lead**: `funnel_status` começa em `scraped` (ou já vem `in_sequence` se você adotar essa convenção) — a função `get_send_queue` já exige `funnel_status = 'in_sequence'` para incluir o lead na fila. Ou seja, **algo precisa mover o lead de `scraped` para `in_sequence` antes do primeiro disparo** — hoje isso não é feito automaticamente por nenhuma tela do CORE. Ao montar o workflow, decida onde essa transição acontece (ex: o próprio n8n marca como `in_sequence` assim que o lead tem `validation_status = 'valid'`, antes de rodar `get_send_queue`).
+- **Um lead por vez, com tratamento de erro isolado**: se o envio de um lead falhar (Resend fora do ar, e-mail rejeitado), registre o erro e siga para o próximo — não deixe uma falha travar a campanha inteira. O workflow pronto já marca os nodes de envio/log/atualização com "continuar em caso de erro".
+- **Transição `scraped` → `in_sequence`**: resolvida no próprio CORE — assim que um lead novo é validado pela Reoon e o resultado é `valid`, o frontend já grava `funnel_status: 'in_sequence'` na hora da criação (`src/pages/CampaignBuilderPage.jsx`, funções `addLeadFromSearchResult` e `handleImportList`). Leads que ficaram `pending` (falha de validação) podem ser revalidados manualmente na aba "Leads Adicionados" da campanha ("Revalidar Pendentes") — se o resultado virar `valid`, a mesma transição acontece. O n8n só precisa consumir `get_send_queue`, que já exige `funnel_status = 'in_sequence'`.
 - **Detecção de resposta/bounce**: fora do escopo deste contrato por enquanto. `outreach_logs.event_type` aceita `'opened' | 'replied' | 'bounced'` além de `'sent'`, e `leads.funnel_status` aceita `'replied' | 'bounced' | 'booked' | 'unsubscribed'` — mas nada aqui popula isso automaticamente. Isso depende de você decidir como capturar respostas (webhook de bounce do Resend cobre bounce; resposta humana normalmente exige uma caixa de entrada dedicada + parsing, ou um serviço de terceiros).
 - Todo o schema (tabelas, enums, RLS, `get_send_queue`, `get_emails_sent_today`) está documentado com comentários em `supabase/migrations/001_core_schema.sql`. A RPC `get_emails_sent_today_for_campaign`, usada no passo 2, está em `supabase/migrations/004_send_quota_helper.sql`.
