@@ -1,5 +1,5 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 /* 1. Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -368,6 +368,12 @@ h4 { font-size: 1rem; font-weight: 500; }
   background-position: right 12px center;
   background-size: 16px;
   padding-right: 36px;
+}
+
+.form-select option {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text);
+  padding: 8px;
 }
 
 /* 9. Tables */

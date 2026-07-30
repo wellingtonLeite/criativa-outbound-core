@@ -63,9 +63,11 @@ export default function Layout() {
         </nav>
 
         <div className="sidebar-user p-4 border-t border-gray-800/50 mt-auto bg-black/20">
-          <div className="flex items-center justify-between px-2">
-            <div className="truncate text-sm text-gray-400 font-medium max-w-[150px]">
-              {user?.email}
+          <div className="flex items-center justify-between px-2 min-w-0">
+            <div className="flex-1 min-w-0 mr-2">
+              <div className="truncate text-sm text-gray-400 font-medium">
+                {user?.email}
+              </div>
             </div>
             <button
               onClick={handleLogout}
