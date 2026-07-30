@@ -283,7 +283,7 @@ export default function CampaignBuilderPage() {
           departments: p.departments || null,
           functions: p.functions || null,
         },
-      }, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
+      }, { onConflict: 'campaign_id,email' });
       if (error) throw error;
       showFeedback('✓ Lead adicionado!');
       await fetchLeads();
@@ -342,9 +342,9 @@ export default function CampaignBuilderPage() {
             },
           };
         });
-      const { error } = await supabase.from('leads').upsert(rows, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
+      const { error } = await supabase.from('leads').upsert(rows, { onConflict: 'campaign_id,email' });
       if (error) throw error;
-      setImportMessage(`✓ ${rows.length} contatos importados de "${list.name}"!`);
+      setImportMessage(`✓ ${rows.length} contatos importados/atualizados de "${list.name}"!`);
       await fetchLeads();
     } catch (error) {
       console.error('Erro ao importar lista:', error);
