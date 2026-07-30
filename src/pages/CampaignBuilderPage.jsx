@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { callApolloProxy } from '../lib/apolloClient';
-import { verifyEmailStatus } from '../lib/reoonClient';
+import { verifyEmailStatus, verifyEmailsBulk } from '../lib/reoonClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
@@ -445,9 +445,14 @@ export default function CampaignBuilderPage() {
       const newRowsToInsert = newRows.slice(0, remainingQuota);
       const truncated = newRows.length - newRowsToInsert.length;
 
-      // Valida o e-mail dos leads novos via Reoon automaticamente (fica 'pending' se falhar/sem credencial)
-      for (const row of newRowsToInsert) {
-        row.validation_status = await verifyEmailStatus(row.email);
+      // Valida os e-mails dos leads novos em lote via Reoon (modo power — detecta catch-all
+      // de verdade). Assíncrono na Reoon; ficam 'pending' se a tarefa falhar ou não completar a tempo.
+      if (newRowsToInsert.length > 0) {
+        setImportMessage(`Validando ${newRowsToInsert.length} e-mails na Reoon...`);
+        const statusByEmail = await verifyEmailsBulk(newRowsToInsert.map(r => r.email));
+        for (const row of newRowsToInsert) {
+          row.validation_status = statusByEmail.get(row.email) || 'pending';
+        }
       }
 
       const rows = [...existingRows, ...newRowsToInsert];

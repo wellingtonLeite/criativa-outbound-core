@@ -52,17 +52,43 @@ export const handler = async (event, context) => {
     const body = JSON.parse(event.body || '{}');
     const { action, payload } = body;
 
-    if (action !== 'verify_email') {
+    let reoonUrl = '';
+    let reoonMethod = 'GET';
+    let reoonBody = null;
+
+    if (action === 'verify_email') {
+      const { email, mode = 'quick' } = payload || {};
+      if (!email) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'email é obrigatório' }) };
+      }
+      reoonUrl = `https://emailverifier.reoon.com/api/v1/verify?email=${encodeURIComponent(email)}&key=${encodeURIComponent(reoonKey)}&mode=${encodeURIComponent(mode)}`;
+    } else if (action === 'create_bulk_task') {
+      const { emails, name } = payload || {};
+      if (!emails || !emails.length) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'emails é obrigatório' }) };
+      }
+      reoonUrl = 'https://emailverifier.reoon.com/api/v1/create-bulk-verification-task/';
+      reoonMethod = 'POST';
+      reoonBody = JSON.stringify({ name: name || 'CORE', emails, key: reoonKey });
+    } else if (action === 'get_bulk_task_result') {
+      const { task_id } = payload || {};
+      if (!task_id) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'task_id é obrigatório' }) };
+      }
+      reoonUrl = `https://emailverifier.reoon.com/api/v1/get-result-bulk-verification-task/?key=${encodeURIComponent(reoonKey)}&task_id=${encodeURIComponent(task_id)}`;
+    } else if (action === 'check_balance') {
+      reoonUrl = `https://emailverifier.reoon.com/api/v1/check-account-balance/?key=${encodeURIComponent(reoonKey)}`;
+    } else {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
     }
 
-    const { email, mode = 'quick' } = payload || {};
-    if (!email) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'email é obrigatório' }) };
+    const fetchOptions = { method: reoonMethod };
+    if (reoonBody) {
+      fetchOptions.headers = { 'Content-Type': 'application/json' };
+      fetchOptions.body = reoonBody;
     }
 
-    const url = `https://emailverifier.reoon.com/api/v1/verify?email=${encodeURIComponent(email)}&key=${encodeURIComponent(reoonKey)}&mode=${encodeURIComponent(mode)}`;
-    const reoonResponse = await fetch(url);
+    const reoonResponse = await fetch(reoonUrl, fetchOptions);
     const reoonData = await reoonResponse.json();
 
     return {

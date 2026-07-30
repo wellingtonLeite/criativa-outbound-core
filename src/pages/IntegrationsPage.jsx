@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { callReoonProxy } from '../lib/reoonClient';
 import { Plus, Pencil, Trash2, Eye, EyeOff, Key, X } from 'lucide-react';
 
 export default function IntegrationsPage() {
@@ -13,6 +14,7 @@ export default function IntegrationsPage() {
   const [formData, setFormData] = useState({ service_name: 'apollo', api_key: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [reoonBalance, setReoonBalance] = useState(null);
 
   useEffect(() => {
     if (user) fetchCredentials();
@@ -28,6 +30,11 @@ export default function IntegrationsPage() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       setCredentials(data || []);
+
+      const hasActiveReoon = (data || []).some(c => c.service_name === 'reoon' && c.is_active);
+      if (hasActiveReoon) {
+        callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
+      }
     } catch (error) {
       console.error('Error fetching credentials:', error);
     } finally {
@@ -163,10 +170,17 @@ export default function IntegrationsPage() {
                 <div style={{
                   background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '10px 14px',
                   fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: '#64748b',
-                  marginBottom: '20px', letterSpacing: '0.5px'
+                  marginBottom: cred.service_name === 'reoon' && reoonBalance ? '12px' : '20px', letterSpacing: '0.5px'
                 }}>
                   {maskApiKey(cred.api_key)}
                 </div>
+
+                {cred.service_name === 'reoon' && reoonBalance && (
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '20px' }}>
+                    Créditos restantes hoje: <strong style={{ color: '#10b981' }}>{reoonBalance.remaining_daily_credits}</strong>
+                    {' · '}Instantâneos: <strong style={{ color: '#e2e8f0' }}>{reoonBalance.remaining_instant_credits}</strong>
+                  </p>
+                )}
 
                 {/* Actions */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
