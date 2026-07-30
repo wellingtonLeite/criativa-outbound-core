@@ -51,21 +51,23 @@ export const handler = async (event, context) => {
     let apolloMethod = 'POST';
 
     if (action === 'search_people') {
-      apolloUrl = 'https://api.apollo.io/v1/mixed_people/search';
+      apolloUrl = 'https://api.apollo.io/api/v1/mixed_people/search';
     } else if (action === 'search_companies') {
-      apolloUrl = 'https://api.apollo.io/v1/mixed_companies/search';
+      apolloUrl = 'https://api.apollo.io/api/v1/mixed_companies/search';
     } else if (action === 'get_lists') {
-      apolloUrl = 'https://api.apollo.io/v1/contact_lists';
+      apolloUrl = 'https://api.apollo.io/api/v1/labels';
       apolloMethod = 'GET';
     } else if (action === 'create_list') {
-      apolloUrl = 'https://api.apollo.io/v1/contact_lists';
+      apolloUrl = 'https://api.apollo.io/api/v1/labels';
     } else {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
     }
 
     const apolloHeaders = {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache',
+      'X-Api-Key': apolloKey,
+      'Authorization': `Bearer ${apolloKey}`
     };
 
     const fetchOptions = {
@@ -74,16 +76,10 @@ export const handler = async (event, context) => {
     };
 
     if (apolloMethod === 'POST') {
-      fetchOptions.body = JSON.stringify({
-        api_key: apolloKey,
-        ...payload
-      });
-    } else {
-      apolloUrl += `?api_key=${apolloKey}`;
-      if (payload) {
-        const queryParams = new URLSearchParams(payload).toString();
-        apolloUrl += `&${queryParams}`;
-      }
+      fetchOptions.body = JSON.stringify(payload);
+    } else if (payload && Object.keys(payload).length > 0) {
+      const queryParams = new URLSearchParams(payload).toString();
+      apolloUrl += `?${queryParams}`;
     }
 
     const apolloResponse = await fetch(apolloUrl, fetchOptions);

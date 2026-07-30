@@ -69,7 +69,7 @@ export default function ProspectorPage() {
     setLoadingLists(true);
     try {
       const data = await callApolloProxy('get_lists');
-      setApolloLists(data.contact_lists || []);
+      setApolloLists(data.labels || data.contact_lists || []);
     } catch (error) {
       console.error('Erro ao buscar listas:', error);
     } finally {
