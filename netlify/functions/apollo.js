@@ -79,8 +79,7 @@ export const handler = async (event, context) => {
     const apolloHeaders = {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache',
-      'X-Api-Key': apolloKey,
-      'Authorization': `Bearer ${apolloKey}`
+      'X-Api-Key': apolloKey
     };
 
     const fetchOptions = {

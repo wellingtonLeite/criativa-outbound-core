@@ -33,9 +33,10 @@ O **CORE** atua como o "cérebro" das operações de Outbound. Em vez de operar 
 
 O sistema segue uma arquitetura moderna focada na rapidez de resposta e estabilidade.
 
-- **Frontend:** React.js (via Vite)
-- **Roteamento:** React Router (Single Page Application)
-- **Estilização:** CSS Customizado (Vanilla CSS) — Extensamente desenhado no arquivo `index.css`.
+- **Frontend:** React 19 (via Vite)
+- **Roteamento:** React Router 7 (Single Page Application)
+- **Estilização:** CSS Customizado (`src/index.css`) + Tailwind CSS e componentes estilo shadcn/ui (`src/components/ui/`) para os elementos de formulário.
+- **Gráficos:** Recharts (Dashboard).
 - **Backend / Database:** [Supabase](https://supabase.com/) (PostgreSQL, Autenticação, Row Level Security).
 - **Serverless / Proxy API:** Funções serverless hospedadas no [Netlify Functions](https://www.netlify.com/products/functions/) (ex: `/netlify/functions/apollo.js`). Isso garante que chaves de API nunca vazem para o cliente.
 - **Ícones:** Lucide React.
@@ -79,10 +80,10 @@ Para evitar os problemas comuns de bloqueio de CORS ao tentar acessar o Apollo d
 1. A página `ProspectorPage.jsx` envia a busca com o `Token JWT` do usuário logado para a função serverless (`/netlify/functions/apollo.js`).
 2. A função intercepta o pedido, usa o `Token` para se identificar no Supabase do usuário (respeitando o RLS).
 3. A função localiza, com segurança, a `Master API Key` do Apollo deste usuário no banco de dados.
-4. A função faz o POST/GET silencioso e autenticado para a API do Apollo.io (ex: `api/v1/labels` ou `api/v1/mixed_people/search`).
+4. A função faz o POST/GET silencioso e autenticado para a API do Apollo.io (ex: `api/v1/labels` ou `api/v1/mixed_people/search`) usando o header `x-api-key` — a API do Apollo **não** usa `Authorization: Bearer`, apenas `x-api-key`.
 5. A função devolve apenas o resultado limpo para a tela do usuário.
 
-**Regra de Ouro:** Para que a aba de Listas funcione, a Chave do Apollo inserida nas integrações PRECISA ter a opção **"Set as Master Key"** ativada no painel do Apollo.
+**Regra de Ouro:** Para que a aba de Listas funcione, a Chave do Apollo inserida nas integrações PRECISA ter a opção **"Set as Master Key"** ativada no painel do Apollo (Settings > Integrations > API Keys). Chaves não-master retornam `403` em endpoints restritos; um `Authorization: Bearer` inválido/indevido retorna o erro `Access token is invalid`.
 
 ---
 
