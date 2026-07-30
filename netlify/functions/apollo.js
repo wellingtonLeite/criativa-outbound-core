@@ -64,7 +64,7 @@ export const handler = async (event, context) => {
     let apolloMethod = 'POST';
 
     if (action === 'search_people') {
-      apolloUrl = 'https://api.apollo.io/api/v1/mixed_people/search';
+      apolloUrl = 'https://api.apollo.io/api/v1/mixed_people/api_search';
     } else if (action === 'search_companies') {
       apolloUrl = 'https://api.apollo.io/api/v1/mixed_companies/search';
     } else if (action === 'get_lists') {
@@ -72,6 +72,10 @@ export const handler = async (event, context) => {
       apolloMethod = 'GET';
     } else if (action === 'create_list') {
       apolloUrl = 'https://api.apollo.io/api/v1/labels';
+    } else if (action === 'get_list_contacts') {
+      apolloUrl = 'https://api.apollo.io/api/v1/contacts/search';
+    } else if (action === 'enrich_person') {
+      apolloUrl = 'https://api.apollo.io/api/v1/people/match';
     } else {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
     }

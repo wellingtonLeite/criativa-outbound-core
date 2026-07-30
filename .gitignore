@@ -28,3 +28,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Graphify (knowledge graph gerado localmente)
+graphify-out/

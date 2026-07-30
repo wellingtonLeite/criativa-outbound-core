@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail } from 'lucide-react';
+import { callApolloProxy } from '../lib/apolloClient';
+import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
 
 /* ============================================================
    TagInput — Componente reutilizável para adicionar tags via Enter
@@ -70,7 +71,24 @@ export default function CampaignBuilderPage() {
   const [isSavingSequence, setIsSavingSequence] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  // Leads da campanha
+  const [leadsSubTab, setLeadsSubTab] = useState('search'); // 'search' | 'import' | 'saved'
+  const [leads, setLeads] = useState([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchingLeads, setSearchingLeads] = useState(false);
+  const [searchErrorMsg, setSearchErrorMsg] = useState('');
+  const [addingLeadId, setAddingLeadId] = useState(null);
+
+  const [apolloLists, setApolloLists] = useState([]);
+  const [loadingApolloLists, setLoadingApolloLists] = useState(false);
+  const [apolloListsError, setApolloListsError] = useState('');
+  const [importingListId, setImportingListId] = useState(null);
+  const [importMessage, setImportMessage] = useState('');
+
   useEffect(() => { fetchData(); }, [id]);
+  useEffect(() => { fetchLeads(); }, [id]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -191,6 +209,124 @@ export default function CampaignBuilderPage() {
     setTimeout(() => setSaveMessage(''), 3000);
   };
 
+  /* ── Leads da Campanha ── */
+
+  const fetchLeads = async () => {
+    setLoadingLeads(true);
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('campaign_id', id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setLeads(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar leads:', error);
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
+
+  const handleSearchLeads = async () => {
+    setSearchingLeads(true);
+    setSearchErrorMsg('');
+    try {
+      const payload = {};
+      if (searchParams.job_titles.length) payload.person_titles = searchParams.job_titles;
+      if (searchParams.locations.length) payload.person_locations = searchParams.locations;
+      if (searchParams.keywords.length) payload.q_keywords = searchParams.keywords.join(' ');
+      payload.per_page = dailyScrapingLimit || 25;
+
+      const data = await callApolloProxy('search_people', payload);
+      setSearchResults(data.people || []);
+    } catch (error) {
+      console.error('Erro ao buscar no Apollo:', error);
+      setSearchErrorMsg(error.message);
+    } finally {
+      setSearchingLeads(false);
+    }
+  };
+
+  const handleAddLeadFromSearch = async (person) => {
+    setAddingLeadId(person.id);
+    try {
+      // A busca de pessoas não retorna e-mail — é preciso enriquecer (consome créditos Apollo)
+      const enriched = await callApolloProxy('enrich_person', { id: person.id });
+      const email = enriched.person?.email;
+      if (!email) {
+        alert('Não foi possível obter um e-mail verificado para este contato.');
+        return;
+      }
+      const { error } = await supabase.from('leads').upsert({
+        campaign_id: id,
+        email,
+        first_name: enriched.person?.first_name || person.first_name,
+        company_name: enriched.person?.organization?.name || person.organization?.name,
+        revenue_estimated: enriched.person?.organization?.annual_revenue_printed || null,
+      }, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
+      if (error) throw error;
+      showFeedback('✓ Lead adicionado!');
+      await fetchLeads();
+    } catch (error) {
+      console.error('Erro ao adicionar lead:', error);
+      alert('Erro ao adicionar lead: ' + error.message);
+    } finally {
+      setAddingLeadId(null);
+    }
+  };
+
+  const fetchApolloListsForImport = async () => {
+    setLoadingApolloLists(true);
+    setApolloListsError('');
+    try {
+      const data = await callApolloProxy('get_lists');
+      setApolloLists(Array.isArray(data) ? data : (data.contact_lists || data.labels || data.lists || []));
+    } catch (error) {
+      console.error('Erro ao buscar listas do Apollo:', error);
+      setApolloListsError(error.message);
+    } finally {
+      setLoadingApolloLists(false);
+    }
+  };
+
+  const handleImportList = async (list) => {
+    setImportingListId(list.id);
+    setImportMessage('');
+    try {
+      const data = await callApolloProxy('get_list_contacts', { contact_label_ids: [list.id], per_page: 100 });
+      const contacts = data.contacts || [];
+      if (contacts.length === 0) {
+        setImportMessage('Nenhum contato encontrado nesta lista.');
+        return;
+      }
+      const rows = contacts
+        .filter(c => !!c.email)
+        .map(c => ({
+          campaign_id: id,
+          email: c.email,
+          first_name: c.first_name || null,
+          company_name: c.organization_name || null,
+          revenue_estimated: null,
+        }));
+      const { error } = await supabase.from('leads').upsert(rows, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
+      if (error) throw error;
+      setImportMessage(`✓ ${rows.length} contatos importados de "${list.name}"!`);
+      await fetchLeads();
+    } catch (error) {
+      console.error('Erro ao importar lista:', error);
+      setImportMessage('Erro ao importar: ' + error.message);
+    } finally {
+      setImportingListId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (leadsSubTab === 'import' && apolloLists.length === 0 && !loadingApolloLists) {
+      fetchApolloListsForImport();
+    }
+  }, [leadsSubTab]);
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
@@ -291,6 +427,177 @@ export default function CampaignBuilderPage() {
           </div>
         </div>
       </form>
+
+      {/* ── Seção 2.5: Leads da Campanha ── */}
+      <div className="section-card" style={{ borderTop: '3px solid #10b981' }}>
+        <div className="section-card-header">
+          <h2 className="section-card-title">
+            <Users size={20} style={{ color: '#10b981' }} />
+            Leads da Campanha
+            <span className="badge" style={{ marginLeft: '8px', background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>{leads.length}</span>
+          </h2>
+        </div>
+
+        {/* Sub-tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+          <button
+            onClick={() => setLeadsSubTab('search')}
+            className={leadsSubTab === 'search' ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={leadsSubTab === 'search' ? { background: '#3b82f6' } : { border: 'none' }}
+          >
+            <Search size={16} /> Buscar no Apollo
+          </button>
+          <button
+            onClick={() => setLeadsSubTab('import')}
+            className={leadsSubTab === 'import' ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={leadsSubTab === 'import' ? { background: '#7c3aed' } : { border: 'none' }}
+          >
+            <List size={16} /> Importar Lista do Apollo
+          </button>
+          <button
+            onClick={() => setLeadsSubTab('saved')}
+            className={leadsSubTab === 'saved' ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={leadsSubTab === 'saved' ? { background: '#10b981' } : { border: 'none' }}
+          >
+            <Users size={16} /> Leads Adicionados
+          </button>
+        </div>
+
+        {/* Sub-tab: Buscar no Apollo */}
+        {leadsSubTab === 'search' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                Busca usando os Cargos, Localizações e Palavras-chave definidos acima em "Parâmetros de Extração".
+              </p>
+              <button onClick={handleSearchLeads} disabled={searchingLeads} className="btn btn-primary" style={{ background: '#3b82f6', whiteSpace: 'nowrap' }}>
+                {searchingLeads ? 'Buscando...' : <><Search size={16} /> Buscar</>}
+              </button>
+            </div>
+
+            {searchErrorMsg && (
+              <p style={{ color: '#f43f5e', fontSize: '0.85rem', marginBottom: '12px' }}>{searchErrorMsg}</p>
+            )}
+
+            {searchResults.length > 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Empresa</th>
+                      <th>Localização</th>
+                      <th style={{ textAlign: 'right' }}>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchResults.map((person) => (
+                      <tr key={person.id}>
+                        <td style={{ color: '#e2e8f0' }}>
+                          <div style={{ fontWeight: 500 }}>
+                            {person.name || [person.first_name, person.last_name_obfuscated].filter(Boolean).join(' ') || '—'}
+                          </div>
+                          {person.title && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{person.title}</div>}
+                        </td>
+                        <td>{person.organization?.name || '—'}</td>
+                        <td>{person.city ? `${person.city}, ${person.country || ''}` : '—'}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            onClick={() => handleAddLeadFromSearch(person)}
+                            disabled={addingLeadId === person.id}
+                            className="btn btn-sm btn-secondary"
+                            title="Consome créditos Apollo para revelar o e-mail"
+                          >
+                            {addingLeadId === person.id ? 'Adicionando...' : 'Adicionar aos Leads'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {searchResults.length === 0 && !searchingLeads && !searchErrorMsg && (
+              <p style={{ fontSize: '0.85rem', color: '#64748b', textAlign: 'center', padding: '24px 0' }}>
+                Clique em "Buscar" para trazer contatos do Apollo com os filtros desta campanha.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Sub-tab: Importar Lista do Apollo */}
+        {leadsSubTab === 'import' && (
+          <div>
+            {importMessage && <p style={{ fontSize: '0.85rem', color: '#10b981', marginBottom: '12px' }}>{importMessage}</p>}
+
+            {loadingApolloLists ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}><div className="spinner"></div></div>
+            ) : apolloListsError ? (
+              <p style={{ color: '#f43f5e', fontSize: '0.85rem' }}>{apolloListsError}</p>
+            ) : apolloLists.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: '#64748b', textAlign: 'center', padding: '24px 0' }}>
+                Você não tem listas no Apollo. Crie uma na aba Prospecção.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                {apolloLists.map(list => (
+                  <div key={list.id} className="glass-card" style={{ padding: '18px' }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '6px' }}>{list.name}</h4>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '12px' }}>
+                      {list.modality === 'accounts' ? 'Empresas' : 'Contatos'}: <strong style={{ color: '#fff' }}>{list.cached_count || 0}</strong>
+                    </p>
+                    <button
+                      onClick={() => handleImportList(list)}
+                      disabled={importingListId === list.id}
+                      className="btn btn-sm btn-primary"
+                      style={{ background: '#7c3aed', width: '100%' }}
+                    >
+                      {importingListId === list.id ? 'Importando...' : <><Download size={14} /> Importar para esta Campanha</>}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sub-tab: Leads Adicionados */}
+        {leadsSubTab === 'saved' && (
+          loadingLeads ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}><div className="spinner"></div></div>
+          ) : leads.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: '#64748b', textAlign: 'center', padding: '24px 0' }}>
+              Nenhum lead adicionado ainda. Busque no Apollo ou importe uma lista acima.
+            </p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Empresa</th>
+                    <th>Validação</th>
+                    <th>Status no Funil</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map(lead => (
+                    <tr key={lead.id}>
+                      <td style={{ color: '#e2e8f0' }}>{lead.first_name || '—'}</td>
+                      <td>{lead.email}</td>
+                      <td>{lead.company_name || '—'}</td>
+                      <td><span className={`badge badge-${lead.validation_status}`}>{lead.validation_status}</span></td>
+                      <td><span className={`badge badge-${lead.funnel_status}`}>{lead.funnel_status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </div>
 
       {/* ── Seção 3: Sequência de E-mails ── */}
       <div className="section-card purple-accent">

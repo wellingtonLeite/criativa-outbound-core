@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Building, User, MapPin, Briefcase, Hash, Filter, List, Plus, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { callApolloProxy } from '../lib/apolloClient';
 
 export default function ProspectorPage() {
   const [activeTab, setActiveTab] = useState('people');
@@ -30,23 +30,6 @@ export default function ProspectorPage() {
       fetchApolloLists();
     }
   }, [activeTab]);
-
-  const callApolloProxy = async (action, payload = {}, method = 'POST') => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Não autenticado');
-
-    const response = await fetch('/.netlify/functions/apollo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ action, payload })
-    });
-    
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || data.message || `Erro do Apollo: ${response.status}`);
-    }
-    return data;
-  };
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
@@ -237,7 +220,9 @@ export default function ProspectorPage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {item.photo_url && <img src={item.photo_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
                             <div>
-                              <div style={{ fontWeight: 500 }}>{item.name}</div>
+                              <div style={{ fontWeight: 500 }}>
+                                {item.name || [item.first_name, item.last_name_obfuscated].filter(Boolean).join(' ') || '—'}
+                              </div>
                               {item.title && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.title}</div>}
                             </div>
                           </div>
