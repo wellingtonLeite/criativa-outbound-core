@@ -10,6 +10,7 @@ import CampaignsPage from './pages/CampaignsPage';
 import CampaignBuilderPage from './pages/CampaignBuilderPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import CRMPage from './pages/CRMPage';
+import ProspectorPage from './pages/ProspectorPage';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
               <Route index element={<DashboardPage />} />
               <Route path="campaigns" element={<CampaignsPage />} />
               <Route path="campaigns/:id" element={<CampaignBuilderPage />} />
+              <Route path="prospector" element={<ProspectorPage />} />
               <Route path="integrations" element={<IntegrationsPage />} />
               <Route path="crm" element={<CRMPage />} />
             </Route>

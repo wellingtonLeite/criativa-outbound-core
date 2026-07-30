@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Megaphone, Plug, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, Megaphone, Plug, Users, LogOut, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Layout() {
@@ -41,6 +41,15 @@ export default function Layout() {
           >
             <Megaphone size={20} />
             <span className="font-medium">Campanhas</span>
+          </NavLink>
+          <NavLink
+            to="/prospector"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-[#3b82f6]/10 text-[#3b82f6] border border-[#3b82f6]/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`
+            }
+          >
+            <Search size={20} />
+            <span className="font-medium">Prospecção Apollo</span>
           </NavLink>
           <NavLink
             to="/integrations"

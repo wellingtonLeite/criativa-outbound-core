@@ -1,0 +1,104 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+export const handler = async (event, context) => {
+  // CORS Headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: 'ok' };
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Authenticate user via Auth header
+    const authHeader = event.headers.authorization;
+    if (!authHeader) {
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Invalid token' }) };
+    }
+
+    // Fetch Apollo API Key from credentials
+    const { data: creds } = await supabase
+      .from('credentials')
+      .select('api_key')
+      .eq('user_id', user.id)
+      .eq('service_name', 'apollo')
+      .eq('is_active', true)
+      .single();
+
+    if (!creds || !creds.api_key) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Chave de API do Apollo não encontrada ou inativa nas Integrações.' }) };
+    }
+
+    const apolloKey = creds.api_key;
+    const body = JSON.parse(event.body || '{}');
+    const { action, payload } = body; 
+
+    let apolloUrl = '';
+    let apolloMethod = 'POST';
+
+    if (action === 'search_people') {
+      apolloUrl = 'https://api.apollo.io/v1/mixed_people/search';
+    } else if (action === 'search_companies') {
+      apolloUrl = 'https://api.apollo.io/v1/mixed_companies/search';
+    } else if (action === 'get_lists') {
+      apolloUrl = 'https://api.apollo.io/v1/contact_lists';
+      apolloMethod = 'GET';
+    } else if (action === 'create_list') {
+      apolloUrl = 'https://api.apollo.io/v1/contact_lists';
+    } else {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
+    }
+
+    const apolloHeaders = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    };
+
+    const fetchOptions = {
+      method: apolloMethod,
+      headers: apolloHeaders
+    };
+
+    if (apolloMethod === 'POST') {
+      fetchOptions.body = JSON.stringify({
+        api_key: apolloKey,
+        ...payload
+      });
+    } else {
+      apolloUrl += `?api_key=${apolloKey}`;
+      if (payload) {
+        const queryParams = new URLSearchParams(payload).toString();
+        apolloUrl += `&${queryParams}`;
+      }
+    }
+
+    const apolloResponse = await fetch(apolloUrl, fetchOptions);
+    const apolloData = await apolloResponse.json();
+
+    return {
+      statusCode: apolloResponse.status,
+      headers,
+      body: JSON.stringify(apolloData)
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: error.message })
+    };
+  }
+};
