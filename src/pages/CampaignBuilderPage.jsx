@@ -83,14 +83,16 @@ export default function CampaignBuilderPage() {
   const [saveMessage, setSaveMessage] = useState('');
 
   // Leads da campanha
-  const [leadsSubTab, setLeadsSubTab] = useState('search'); // 'search' | 'import' | 'saved'
+  const [leadsSubTab, setLeadsSubTab] = useState('import'); // 'import' | 'saved'
   const [leads, setLeads] = useState([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
 
   const [searchResults, setSearchResults] = useState([]);
   const [searchingLeads, setSearchingLeads] = useState(false);
   const [searchErrorMsg, setSearchErrorMsg] = useState('');
-  const [addingLeadId, setAddingLeadId] = useState(null);
+  const [selectedSearchIds, setSelectedSearchIds] = useState(new Set());
+  const [bulkAdding, setBulkAdding] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const [apolloLists, setApolloLists] = useState([]);
   const [loadingApolloLists, setLoadingApolloLists] = useState(false);
@@ -137,22 +139,27 @@ export default function CampaignBuilderPage() {
     }
   };
 
-  const handleSaveSettings = async (e) => {
+  const saveSettings = async () => {
+    const { error } = await supabase.from('campaigns').update({
+      name, daily_send_limit: dailyLimit, daily_scraping_limit: dailyScrapingLimit, search_parameters: searchParams
+    }).eq('id', id);
+    if (error) throw error;
+    setCampaign(prev => ({ ...prev, name, daily_send_limit: dailyLimit, daily_scraping_limit: dailyScrapingLimit, search_parameters: searchParams }));
+  };
+
+  const handleSaveAndSearch = async (e) => {
     e.preventDefault();
     setIsSavingSettings(true);
     try {
-      const { error } = await supabase.from('campaigns').update({ 
-        name, daily_send_limit: dailyLimit, daily_scraping_limit: dailyScrapingLimit, search_parameters: searchParams
-      }).eq('id', id);
-      if (error) throw error;
-      setCampaign(prev => ({ ...prev, name, daily_send_limit: dailyLimit, daily_scraping_limit: dailyScrapingLimit, search_parameters: searchParams }));
-      showFeedback('✓ Configurações salvas!');
+      await saveSettings();
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
       alert('Erro ao salvar configurações');
-    } finally {
       setIsSavingSettings(false);
+      return;
     }
+    setIsSavingSettings(false);
+    await handleSearchLeads();
   };
 
   const handleToggleStatus = async () => {
@@ -261,51 +268,74 @@ export default function CampaignBuilderPage() {
     }
   };
 
-  const handleAddLeadFromSearch = async (person) => {
-    setAddingLeadId(person.id);
-    try {
-      // A busca de pessoas não retorna e-mail — é preciso enriquecer (consome créditos Apollo)
-      const enriched = await callApolloProxy('enrich_person', { id: person.id });
-      const email = enriched.person?.email;
-      if (!email) {
-        alert('Não foi possível obter um e-mail verificado para este contato.');
-        return;
+  // Enriquece (revela e-mail, consome créditos Apollo) e grava um resultado de busca como lead
+  const addLeadFromSearchResult = async (person) => {
+    const enriched = await callApolloProxy('enrich_person', { id: person.id });
+    const email = enriched.person?.email;
+    if (!email) throw new Error('Não foi possível obter um e-mail verificado para este contato.');
+
+    const p = enriched.person || {};
+    const orgRaw = { ...(person.organization || {}), ...(p.organization || {}) };
+    const org = { ...orgRaw, phone: normalizePhone(orgRaw.phone), primary_phone: normalizePhone(orgRaw.primary_phone) };
+    const { error } = await supabase.from('leads').upsert({
+      campaign_id: id,
+      email,
+      first_name: p.first_name || person.first_name || null,
+      last_name: p.last_name || person.last_name || null,
+      company_name: org.name || null,
+      revenue_estimated: org.annual_revenue_printed || null,
+      phone: normalizePhone(p.sanitized_phone) || org.phone || org.primary_phone || null,
+      company_info: Object.keys(org).length ? org : null,
+      raw_data: enriched.person || null,
+      person_info: {
+        title: p.title || person.title || null,
+        seniority: p.seniority || null,
+        headline: p.headline || null,
+        linkedin_url: p.linkedin_url || null,
+        twitter_url: p.twitter_url || null,
+        city: p.city || null,
+        state: p.state || null,
+        country: p.country || null,
+        departments: p.departments || null,
+        functions: p.functions || null,
+      },
+    }, { onConflict: 'campaign_id,email' });
+    if (error) throw error;
+  };
+
+  const toggleSearchSelection = (personId) => {
+    setSelectedSearchIds(prev => {
+      const next = new Set(prev);
+      if (next.has(personId)) next.delete(personId); else next.add(personId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllSearchResults = () => {
+    setSelectedSearchIds(prev =>
+      prev.size === searchResults.length ? new Set() : new Set(searchResults.map(p => p.id))
+    );
+  };
+
+  const handleAddSelectedLeads = async () => {
+    const toAdd = searchResults.filter(p => selectedSearchIds.has(p.id));
+    if (toAdd.length === 0) return;
+    setBulkAdding(true);
+    setBulkProgress({ done: 0, total: toAdd.length });
+    let added = 0;
+    for (const person of toAdd) {
+      try {
+        await addLeadFromSearchResult(person);
+        added++;
+      } catch (error) {
+        console.error('Erro ao adicionar lead em lote:', person.id, error);
       }
-      const p = enriched.person || {};
-      const orgRaw = { ...(person.organization || {}), ...(p.organization || {}) };
-      const org = { ...orgRaw, phone: normalizePhone(orgRaw.phone), primary_phone: normalizePhone(orgRaw.primary_phone) };
-      const { error } = await supabase.from('leads').upsert({
-        campaign_id: id,
-        email,
-        first_name: p.first_name || person.first_name || null,
-        last_name: p.last_name || person.last_name || null,
-        company_name: org.name || null,
-        revenue_estimated: org.annual_revenue_printed || null,
-        phone: normalizePhone(p.sanitized_phone) || org.phone || org.primary_phone || null,
-        company_info: Object.keys(org).length ? org : null,
-        raw_data: enriched.person || null,
-        person_info: {
-          title: p.title || person.title || null,
-          seniority: p.seniority || null,
-          headline: p.headline || null,
-          linkedin_url: p.linkedin_url || null,
-          twitter_url: p.twitter_url || null,
-          city: p.city || null,
-          state: p.state || null,
-          country: p.country || null,
-          departments: p.departments || null,
-          functions: p.functions || null,
-        },
-      }, { onConflict: 'campaign_id,email' });
-      if (error) throw error;
-      showFeedback('✓ Lead adicionado!');
-      await fetchLeads();
-    } catch (error) {
-      console.error('Erro ao adicionar lead:', error);
-      alert('Erro ao adicionar lead: ' + error.message);
-    } finally {
-      setAddingLeadId(null);
+      setBulkProgress(prev => ({ ...prev, done: prev.done + 1 }));
     }
+    setBulkAdding(false);
+    setSelectedSearchIds(new Set());
+    showFeedback(`✓ ${added} de ${toAdd.length} leads adicionados!`);
+    await fetchLeads();
   };
 
   const fetchApolloListsForImport = async () => {
@@ -408,7 +438,7 @@ export default function CampaignBuilderPage() {
       </div>
 
       {/* ── Seção 1: Configurações Gerais ── */}
-      <form onSubmit={handleSaveSettings}>
+      <form onSubmit={handleSaveAndSearch}>
         <div className="section-card">
           <div className="section-card-header">
             <h2 className="section-card-title">Configurações Gerais</h2>
@@ -474,10 +504,79 @@ export default function CampaignBuilderPage() {
               <input type="number" required min="1" value={dailyScrapingLimit} onChange={e => setDailyScrapingLimit(Number(e.target.value))} className="form-input" />
               <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Máximo de contatos extraídos por dia</p>
             </div>
-            <button type="submit" disabled={isSavingSettings} className="btn btn-primary">
-              <Save size={16} /> {isSavingSettings ? 'Salvando...' : 'Salvar Campanha'}
+            <button type="submit" disabled={isSavingSettings || searchingLeads} className="btn btn-primary">
+              <Search size={16} /> {isSavingSettings ? 'Salvando...' : searchingLeads ? 'Buscando...' : 'Salvar e Buscar no Apollo'}
             </button>
           </div>
+
+          {/* Resultados da busca — aparecem aqui mesmo, sem trocar de seção */}
+          {(searchErrorMsg || searchResults.length > 0) && (
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '20px', marginTop: '20px' }}>
+              {searchErrorMsg && <p style={{ color: '#f43f5e', fontSize: '0.85rem', marginBottom: '12px' }}>{searchErrorMsg}</p>}
+
+              {searchResults.length > 0 && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                      {searchResults.length} contatos encontrados — {selectedSearchIds.size} selecionados
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAddSelectedLeads}
+                      disabled={selectedSearchIds.size === 0 || bulkAdding}
+                      className="btn btn-sm btn-primary"
+                      style={{ background: '#10b981' }}
+                      title="Consome créditos Apollo para revelar o e-mail de cada contato selecionado"
+                    >
+                      {bulkAdding
+                        ? `Adicionando ${bulkProgress.done}/${bulkProgress.total}...`
+                        : `Adicionar Selecionados (${selectedSearchIds.size})`}
+                    </button>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '32px' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedSearchIds.size === searchResults.length}
+                              onChange={toggleSelectAllSearchResults}
+                            />
+                          </th>
+                          <th>Nome</th>
+                          <th>Empresa</th>
+                          <th>Localização</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {searchResults.map((person) => (
+                          <tr key={person.id} onClick={() => toggleSearchSelection(person.id)} style={{ cursor: 'pointer' }}>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedSearchIds.has(person.id)}
+                                onChange={() => toggleSearchSelection(person.id)}
+                              />
+                            </td>
+                            <td style={{ color: '#e2e8f0' }}>
+                              <div style={{ fontWeight: 500 }}>
+                                {person.name || [person.first_name, person.last_name_obfuscated].filter(Boolean).join(' ') || '—'}
+                              </div>
+                              {person.title && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{person.title}</div>}
+                            </td>
+                            <td>{person.organization?.name || '—'}</td>
+                            <td>{person.city ? `${person.city}, ${person.country || ''}` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </form>
 
@@ -494,13 +593,6 @@ export default function CampaignBuilderPage() {
         {/* Sub-tabs */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
           <button
-            onClick={() => setLeadsSubTab('search')}
-            className={leadsSubTab === 'search' ? 'btn btn-primary' : 'btn btn-secondary'}
-            style={leadsSubTab === 'search' ? { background: '#3b82f6' } : { border: 'none' }}
-          >
-            <Search size={16} /> Buscar no Apollo
-          </button>
-          <button
             onClick={() => setLeadsSubTab('import')}
             className={leadsSubTab === 'import' ? 'btn btn-primary' : 'btn btn-secondary'}
             style={leadsSubTab === 'import' ? { background: '#7c3aed' } : { border: 'none' }}
@@ -515,69 +607,6 @@ export default function CampaignBuilderPage() {
             <Users size={16} /> Leads Adicionados
           </button>
         </div>
-
-        {/* Sub-tab: Buscar no Apollo */}
-        {leadsSubTab === 'search' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                Busca usando os Cargos, Localizações e Palavras-chave definidos acima em "Parâmetros de Extração".
-              </p>
-              <button onClick={handleSearchLeads} disabled={searchingLeads} className="btn btn-primary" style={{ background: '#3b82f6', whiteSpace: 'nowrap' }}>
-                {searchingLeads ? 'Buscando...' : <><Search size={16} /> Buscar</>}
-              </button>
-            </div>
-
-            {searchErrorMsg && (
-              <p style={{ color: '#f43f5e', fontSize: '0.85rem', marginBottom: '12px' }}>{searchErrorMsg}</p>
-            )}
-
-            {searchResults.length > 0 && (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Empresa</th>
-                      <th>Localização</th>
-                      <th style={{ textAlign: 'right' }}>Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {searchResults.map((person) => (
-                      <tr key={person.id}>
-                        <td style={{ color: '#e2e8f0' }}>
-                          <div style={{ fontWeight: 500 }}>
-                            {person.name || [person.first_name, person.last_name_obfuscated].filter(Boolean).join(' ') || '—'}
-                          </div>
-                          {person.title && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{person.title}</div>}
-                        </td>
-                        <td>{person.organization?.name || '—'}</td>
-                        <td>{person.city ? `${person.city}, ${person.country || ''}` : '—'}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            onClick={() => handleAddLeadFromSearch(person)}
-                            disabled={addingLeadId === person.id}
-                            className="btn btn-sm btn-secondary"
-                            title="Consome créditos Apollo para revelar o e-mail"
-                          >
-                            {addingLeadId === person.id ? 'Adicionando...' : 'Adicionar aos Leads'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {searchResults.length === 0 && !searchingLeads && !searchErrorMsg && (
-              <p style={{ fontSize: '0.85rem', color: '#64748b', textAlign: 'center', padding: '24px 0' }}>
-                Clique em "Buscar" para trazer contatos do Apollo com os filtros desta campanha.
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Sub-tab: Importar Lista do Apollo */}
         {leadsSubTab === 'import' && (
