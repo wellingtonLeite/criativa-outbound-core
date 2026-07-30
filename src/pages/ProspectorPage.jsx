@@ -52,7 +52,7 @@ export default function ProspectorPage() {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Prospecção</h1>
+          <h1 className="page-title">Listas Apollo</h1>
           <p className="page-subtitle">Gerencie suas listas do Apollo.io — a busca e importação de contatos ficam dentro de cada campanha</p>
         </div>
         <button onClick={() => setShowListModal(true)} className="btn btn-primary">

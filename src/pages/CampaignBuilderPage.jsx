@@ -512,7 +512,22 @@ export default function CampaignBuilderPage() {
           {/* Resultados da busca — aparecem aqui mesmo, sem trocar de seção */}
           {(searchErrorMsg || searchResults.length > 0) && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '20px', marginTop: '20px' }}>
-              {searchErrorMsg && <p style={{ color: '#f43f5e', fontSize: '0.85rem', marginBottom: '12px' }}>{searchErrorMsg}</p>}
+              {searchErrorMsg && (
+                searchErrorMsg.toLowerCase().includes('not included in your') ? (
+                  <div style={{ color: '#f43f5e', fontSize: '0.85rem', marginBottom: '12px' }}>
+                    <p style={{ fontWeight: 600, marginBottom: '4px' }}>
+                      Seu plano Apollo não inclui a busca direta de pessoas (People API Search).
+                    </p>
+                    <p style={{ color: '#94a3b8' }}>
+                      É uma restrição do plano da sua conta Apollo, não um erro do sistema — nem uma Master Key libera esse endpoint em planos gratuitos.
+                      Enquanto isso, use a aba <strong>"Importar Lista do Apollo"</strong> abaixo: ela usa um endpoint diferente, já
+                      disponível no seu plano, e traz e-mail verificado sem custo extra de créditos.
+                    </p>
+                  </div>
+                ) : (
+                  <p style={{ color: '#f43f5e', fontSize: '0.85rem', marginBottom: '12px' }}>{searchErrorMsg}</p>
+                )
+              )}
 
               {searchResults.length > 0 && (
                 <>
