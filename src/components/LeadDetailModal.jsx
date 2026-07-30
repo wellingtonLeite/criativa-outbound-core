@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Linkedin, Twitter, Globe } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import CompanyAvatar from './CompanyAvatar';
 
 const joinList = (value) => {
   if (!value) return null;
@@ -78,28 +79,6 @@ function InfoGrid({ data, fields, links }) {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function CompanyAvatar({ name, logoUrl }) {
-  const initial = (name || '?').charAt(0).toUpperCase();
-  if (logoUrl) {
-    return (
-      <img
-        src={logoUrl}
-        alt={name || 'Empresa'}
-        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', background: '#1e293b', flexShrink: 0 }}
-        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-      />
-    );
-  }
-  return (
-    <div style={{
-      width: '40px', height: '40px', borderRadius: '50%', background: '#1e293b', color: '#00d4ff',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0
-    }}>
-      {initial}
     </div>
   );
 }

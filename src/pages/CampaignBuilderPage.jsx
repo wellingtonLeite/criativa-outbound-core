@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { callApolloProxy } from '../lib/apolloClient';
 import LeadDetailModal from '../components/LeadDetailModal';
+import CompanyAvatar from '../components/CompanyAvatar';
 import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
 
 // A Apollo às vezes devolve telefone como string, às vezes como
@@ -639,7 +640,12 @@ export default function CampaignBuilderPage() {
                     <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ cursor: 'pointer' }}>
                       <td style={{ color: '#e2e8f0' }}>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || '—'}</td>
                       <td>{lead.email}</td>
-                      <td>{lead.company_name || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <CompanyAvatar name={lead.company_name} logoUrl={lead.company_info?.logo_url} size={24} />
+                          {lead.company_name || '—'}
+                        </div>
+                      </td>
                       <td><span className={`badge badge-${lead.validation_status}`}>{lead.validation_status}</span></td>
                       <td><span className={`badge badge-${lead.funnel_status}`}>{lead.funnel_status}</span></td>
                     </tr>

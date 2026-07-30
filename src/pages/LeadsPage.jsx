@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import LeadDetailModal from '../components/LeadDetailModal';
+import CompanyAvatar from '../components/CompanyAvatar';
 import { Search, Users } from 'lucide-react';
 
 export default function LeadsPage() {
@@ -135,7 +136,12 @@ export default function LeadsPage() {
                   <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ cursor: 'pointer' }}>
                     <td style={{ color: '#e2e8f0', fontWeight: 500 }}>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || '—'}</td>
                     <td>{lead.email}</td>
-                    <td>{lead.company_name || '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CompanyAvatar name={lead.company_name} logoUrl={lead.company_info?.logo_url} size={24} />
+                        {lead.company_name || '—'}
+                      </div>
+                    </td>
                     <td title={lead.campaigns?.name} style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {lead.campaigns?.name}
                     </td>
