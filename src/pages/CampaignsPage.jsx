@@ -76,116 +76,95 @@ export default function CampaignsPage() {
       await fetchCampaigns();
     } catch (error) {
       console.error('Erro ao alterar status:', error);
-      alert('Erro ao atualizar status da campanha');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta campanha? Isso apagará todos os dados associados a ela.')) {
-      return;
-    }
+    if (!window.confirm('Tem certeza que deseja excluir esta campanha?')) return;
     try {
-      const { error } = await supabase
-        .from('campaigns')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('campaigns').delete().eq('id', id);
       if (error) throw error;
       await fetchCampaigns();
     } catch (error) {
       console.error('Erro ao excluir campanha:', error);
-      alert('Erro ao excluir campanha');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
         <div className="spinner"></div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in p-6 max-w-7xl mx-auto">
-      <div className="page-header flex justify-between items-center mb-8">
+    <div className="animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="page-title text-3xl font-bold">Campanhas</h1>
-          <p className="page-subtitle text-gray-400 mt-1">Gerencie suas campanhas de prospecção</p>
+          <h1 className="page-title">Campanhas</h1>
+          <p className="page-subtitle">Gerencie suas campanhas de prospecção e envio</p>
         </div>
-        <button 
-          className="btn btn-primary flex items-center gap-2"
-          onClick={() => setShowModal(true)}
-        >
-          <Plus size={20} />
-          Nova Campanha
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <Plus size={18} /> Nova Campanha
         </button>
       </div>
 
       {campaigns.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-lg border border-white/10 text-center">
-          <Megaphone size={48} className="text-gray-400 mb-4" />
-          <h3 className="text-xl font-medium text-white mb-2">Nenhuma campanha criada</h3>
-          <p className="text-gray-400">Crie sua primeira campanha para começar</p>
+        <div className="empty-state glass-card">
+          <Megaphone size={48} className="empty-state-icon" />
+          <h3>Nenhuma campanha criada</h3>
+          <p>Crie sua primeira campanha para começar a prospectar</p>
         </div>
       ) : (
-        <div className="campaigns-grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="campaigns-grid">
           {campaigns.map((campaign) => (
-            <div key={campaign.id} className="glass-card p-6 rounded-xl border border-white/10 bg-white/5 flex flex-col h-full">
-              <div className="campaign-card-header flex justify-between items-start mb-4">
-                <h3 className="campaign-card-name font-semibold text-lg text-white truncate pr-4" title={campaign.name}>
+            <div key={campaign.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', padding: '24px' }}>
+              <div className="campaign-card-header">
+                <h3 className="campaign-card-name" title={campaign.name} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
                   {campaign.name}
                 </h3>
-                <span className={`badge badge-${campaign.status} px-2 py-1 rounded text-xs font-medium uppercase tracking-wider`}>
+                <span className={`badge badge-${campaign.status}`}>
                   {campaign.status}
                 </span>
               </div>
               
-              <div className="campaign-card-stats grid grid-cols-2 gap-4 mb-6 flex-grow">
-                <div className="stat-item bg-black/20 p-3 rounded-lg">
-                  <p className="text-xs text-gray-400 mb-1">Leads</p>
-                  <p className="font-semibold text-white">
-                    {campaign.leads?.[0]?.count || 0}
-                  </p>
+              <div className="campaign-card-stats">
+                <div className="campaign-card-stat">
+                  <span className="campaign-card-stat-label">Leads</span>
+                  <span className="campaign-card-stat-value">{campaign.leads?.[0]?.count || 0}</span>
                 </div>
-                <div className="stat-item bg-black/20 p-3 rounded-lg">
-                  <p className="text-xs text-gray-400 mb-1">Limite diário</p>
-                  <p className="font-semibold text-white">{campaign.daily_send_limit}</p>
+                <div className="campaign-card-stat">
+                  <span className="campaign-card-stat-label">Limite/Dia</span>
+                  <span className="campaign-card-stat-value">{campaign.daily_send_limit}</span>
                 </div>
-                <div className="stat-item bg-black/20 p-3 rounded-lg col-span-2">
-                  <p className="text-xs text-gray-400 mb-1">Criada em</p>
-                  <p className="font-semibold text-white">
+                <div className="campaign-card-stat" style={{ gridColumn: 'span 2' }}>
+                  <span className="campaign-card-stat-label">Criada em</span>
+                  <span className="campaign-card-stat-value">
                     {new Date(campaign.created_at).toLocaleDateString('pt-BR')}
-                  </p>
+                  </span>
                 </div>
               </div>
 
-              <div className="campaign-card-actions flex items-center justify-between mt-auto pt-4 border-t border-white/10">
-                <div className="flex gap-2">
-                  <Link 
-                    to={`/campaigns/${campaign.id}`}
-                    className="btn btn-secondary btn-sm flex items-center gap-1"
-                  >
-                    <Pencil size={16} />
-                    Editar
+              <div className="campaign-card-actions" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Link to={`/campaigns/${campaign.id}`} className="btn btn-sm btn-secondary">
+                    <Pencil size={14} /> Editar
                   </Link>
                   <button 
                     onClick={() => handleToggleStatus(campaign.id, campaign.status)}
-                    className="btn btn-sm flex items-center gap-1 bg-white/10 hover:bg-white/20 transition-colors rounded px-3 py-1.5"
+                    className="btn btn-sm btn-secondary"
                   >
-                    {campaign.status === 'active' ? (
-                      <><Pause size={16} /> Pausar</>
-                    ) : (
-                      <><Play size={16} /> Ativar</>
-                    )}
+                    {campaign.status === 'active' ? <><Pause size={14} /> Pausar</> : <><Play size={14} /> Ativar</>}
                   </button>
                 </div>
                 <button 
                   onClick={() => handleDelete(campaign.id)}
-                  className="btn btn-danger btn-sm text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-400/10 transition-colors"
+                  className="btn-icon"
+                  style={{ color: '#f43f5e', border: 'none' }}
                   title="Excluir"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -194,55 +173,44 @@ export default function CampaignsPage() {
       )}
 
       {showModal && (
-        <div className="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="modal-content bg-[#1a1b26] p-6 rounded-xl border border-white/10 w-full max-w-md shadow-2xl">
-            <div className="modal-header flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">Nova Campanha</h2>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X size={24} />
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Nova Campanha</h2>
+              <button onClick={() => setShowModal(false)} className="btn-icon" style={{ border: 'none', background: 'transparent' }}>
+                <X size={20} />
               </button>
             </div>
             
             <form onSubmit={handleCreateCampaign}>
-              <div className="form-group mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Nome da Campanha</label>
+              <div className="form-group">
+                <label className="form-label">Nome da Campanha</label>
                 <input 
                   type="text"
                   required
                   value={newCampaignName}
                   onChange={(e) => setNewCampaignName(e.target.value)}
-                  className="form-input w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-white focus:border-primary focus:outline-none transition-colors"
+                  className="form-input"
                   placeholder="Ex: Prospecção Q3"
                 />
               </div>
-              <div className="form-group mb-8">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Limite Diário de Envio</label>
+              <div className="form-group" style={{ marginBottom: '32px' }}>
+                <label className="form-label">Limite Diário de Envio</label>
                 <input 
                   type="number"
                   required
                   min="1"
                   value={newCampaignLimit}
                   onChange={(e) => setNewCampaignLimit(Number(e.target.value))}
-                  className="form-input w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-white focus:border-primary focus:outline-none transition-colors"
+                  className="form-input"
                 />
               </div>
               
-              <div className="modal-footer flex justify-end gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setShowModal(false)}
-                  className="btn btn-secondary px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white"
-                >
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={creating}
-                  className="btn btn-primary px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors text-white disabled:opacity-50"
-                >
+                <button type="submit" disabled={creating} className="btn btn-primary">
                   {creating ? 'Criando...' : 'Criar Campanha'}
                 </button>
               </div>

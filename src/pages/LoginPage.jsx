@@ -32,74 +32,81 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-background min-h-screen flex items-center justify-center p-4 bg-[#0a0a0f] relative overflow-hidden">
+    <div className="login-background" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: '#0a0a0f', position: 'relative', overflow: 'hidden' }}>
       {/* Background gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#7c3aed] rounded-full blur-[120px] opacity-20"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#00d4ff] rounded-full blur-[120px] opacity-20"></div>
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: '#7c3aed', borderRadius: '50%', filter: 'blur(120px)', opacity: 0.2 }}></div>
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%', background: '#00d4ff', borderRadius: '50%', filter: 'blur(120px)', opacity: 0.2 }}></div>
 
-      <div className="login-card glass-card w-full max-w-md p-8 rounded-2xl shadow-2xl relative z-10 bg-[#1a1a2e]/40 backdrop-blur-xl border border-white/10">
-        <div className="text-center mb-8">
-          <h1 className="login-logo text-4xl font-bold text-white mb-2 tracking-wider flex items-center justify-center gap-2">
-            CORE<span className="text-[#00d4ff] text-5xl leading-none">.</span>
+      <div className="login-card glass-card" style={{ width: '100%', maxWidth: '400px', padding: '32px', position: 'relative', zIndex: 10 }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 className="login-logo" style={{ fontSize: '2.5rem', fontWeight: 700, color: '#fff', marginBottom: '8px', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            CORE<span style={{ color: '#00d4ff', fontSize: '3rem', lineHeight: 1 }}>.</span>
           </h1>
-          <p className="login-subtitle text-gray-400 text-sm">Criativa Outbound Real-time Engine</p>
+          <p className="login-subtitle" style={{ color: '#64748b', fontSize: '0.875rem' }}>Criativa Outbound Real-time Engine</p>
         </div>
 
-        <div className="login-tabs flex mb-6 border-b border-gray-700">
+        <div className="login-tabs" style={{ display: 'flex', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <button
             type="button"
-            className={`login-tab flex-1 pb-3 text-sm font-medium transition-colors relative ${isLogin ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            style={{ 
+              flex: 1, paddingBottom: '12px', fontSize: '0.875rem', fontWeight: 500, position: 'relative',
+              color: isLogin ? '#fff' : '#64748b', background: 'transparent', border: 'none', cursor: 'pointer' 
+            }}
             onClick={() => setIsLogin(true)}
           >
             Entrar
-            {isLogin && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#00d4ff]"></div>}
+            {isLogin && <div style={{ position: 'absolute', bottom: '-1px', left: 0, width: '100%', height: '2px', background: '#00d4ff' }}></div>}
           </button>
           <button
             type="button"
-            className={`login-tab flex-1 pb-3 text-sm font-medium transition-colors relative ${!isLogin ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            style={{ 
+              flex: 1, paddingBottom: '12px', fontSize: '0.875rem', fontWeight: 500, position: 'relative',
+              color: !isLogin ? '#fff' : '#64748b', background: 'transparent', border: 'none', cursor: 'pointer' 
+            }}
             onClick={() => setIsLogin(false)}
           >
             Criar conta
-            {!isLogin && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#00d4ff]"></div>}
+            {!isLogin && <div style={{ position: 'absolute', bottom: '-1px', left: 0, width: '100%', height: '2px', background: '#00d4ff' }}></div>}
           </button>
         </div>
 
         {error && (
-          <div className="login-error bg-rose-500/10 border border-rose-500/50 text-rose-500 p-3 rounded-lg mb-6 text-sm">
+          <div className="login-error" style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.5)', color: '#f43f5e', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '0.875rem' }}>
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="form-group">
-            <label className="form-label block text-sm font-medium text-gray-300 mb-1">E-mail</label>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">E-mail</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="form-input w-full bg-[#1a1a2e]/60 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-[#00d4ff] focus:ring-1 focus:ring-[#00d4ff] transition-all"
+              className="form-input"
               placeholder="seu@email.com"
             />
           </div>
-          <div className="form-group">
-            <label className="form-label block text-sm font-medium text-gray-300 mb-1">Senha</label>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Senha</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="form-input w-full bg-[#1a1a2e]/60 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-[#00d4ff] focus:ring-1 focus:ring-[#00d4ff] transition-all"
+              className="form-input"
               placeholder="••••••••"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary w-full bg-gradient-to-r from-[#7c3aed] to-[#00d4ff] hover:from-[#6d28d9] hover:to-[#00b3d6] text-white font-medium py-2.5 rounded-lg transition-all flex items-center justify-center h-[44px] shadow-lg shadow-[#7c3aed]/25"
+            className="btn btn-primary"
+            style={{ width: '100%', height: '44px', background: 'linear-gradient(90deg, #7c3aed 0%, #00d4ff 100%)', border: 'none', marginTop: '8px' }}
           >
             {loading ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div>
             ) : (
               isLogin ? 'Entrar' : 'Criar conta'
             )}

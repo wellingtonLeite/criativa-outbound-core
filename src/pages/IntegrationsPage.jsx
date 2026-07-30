@@ -15,9 +15,7 @@ export default function IntegrationsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchCredentials();
-    }
+    if (user) fetchCredentials();
   }, [user]);
 
   const fetchCredentials = async () => {
@@ -28,7 +26,6 @@ export default function IntegrationsPage() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-        
       if (error) throw error;
       setCredentials(data || []);
     } catch (error) {
@@ -59,23 +56,13 @@ export default function IntegrationsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.api_key) return;
-    
     try {
       setIsSubmitting(true);
       if (editingId) {
-        const { error } = await supabase
-          .from('credentials')
-          .update({ api_key: formData.api_key })
-          .eq('id', editingId);
+        const { error } = await supabase.from('credentials').update({ api_key: formData.api_key }).eq('id', editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('credentials')
-          .insert({ 
-            service_name: formData.service_name, 
-            api_key: formData.api_key, 
-            user_id: user.id 
-          });
+        const { error } = await supabase.from('credentials').insert({ service_name: formData.service_name, api_key: formData.api_key, user_id: user.id });
         if (error) throw error;
       }
       handleCloseModal();
@@ -89,11 +76,7 @@ export default function IntegrationsPage() {
 
   const handleToggleActive = async (id, currentStatus) => {
     try {
-      // Prompt mentioned is_active, let's use is_active as standard boolean flag
-      const { error } = await supabase
-        .from('credentials')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
+      const { error } = await supabase.from('credentials').update({ is_active: !currentStatus }).eq('id', id);
       if (error) throw error;
       await fetchCredentials();
     } catch (error) {
@@ -104,10 +87,7 @@ export default function IntegrationsPage() {
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir esta integração?')) {
       try {
-        const { error } = await supabase
-          .from('credentials')
-          .delete()
-          .eq('id', id);
+        const { error } = await supabase.from('credentials').delete().eq('id', id);
         if (error) throw error;
         await fetchCredentials();
       } catch (error) {
@@ -121,132 +101,162 @@ export default function IntegrationsPage() {
     return `${key.slice(0, 4)}••••••••${key.slice(-4)}`;
   };
 
+  const serviceLabels = {
+    apollo: { name: 'Apollo.io', color: '#3b82f6', description: 'Prospecção e enriquecimento de leads' },
+    reoon: { name: 'Reoon', color: '#10b981', description: 'Verificação de e-mails' },
+    resend: { name: 'Resend', color: '#7c3aed', description: 'Envio de e-mails transacionais' },
+    instantly: { name: 'Instantly', color: '#f59e0b', description: 'Cold email em escala' },
+    smartlead: { name: 'Smartlead', color: '#f43f5e', description: 'Automação de outbound' },
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64 animate-fade-in">
-        <div className="spinner w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+        <div className="spinner"></div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="page-header flex justify-between items-center">
+    <div className="animate-fade-in">
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1 className="page-title text-2xl font-bold">Integrações</h1>
-          <p className="page-subtitle text-gray-400">Gerencie suas chaves de API</p>
+          <h1 className="page-title">Integrações</h1>
+          <p className="page-subtitle">Conecte suas ferramentas de prospecção e envio de e-mails</p>
         </div>
-        <button 
-          onClick={() => handleOpenModal()} 
-          className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={20} />
-          Nova Integração
+        <button onClick={() => handleOpenModal()} className="btn btn-primary">
+          <Plus size={18} /> Nova Integração
         </button>
       </div>
 
+      {/* Empty State */}
       {credentials.length === 0 ? (
-        <div className="empty-state flex flex-col items-center justify-center p-12 glass-card rounded-xl border border-white/10 bg-white/5">
-          <div className="empty-state-icon text-gray-500 mb-4">
-            <Key size={48} />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Nenhuma integração configurada</h3>
-          <p className="text-gray-400">Adicione suas chaves de API para começar</p>
+        <div className="glass-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <Key size={48} style={{ opacity: 0.3, margin: '0 auto 16px' }} />
+          <h3 style={{ marginBottom: '8px' }}>Nenhuma integração configurada</h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Clique em "Nova Integração" para conectar sua primeira API</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {credentials.map((cred) => (
-            <div key={cred.id} className="glass-card credential-card p-6 rounded-xl border border-white/10 flex flex-col justify-between h-full bg-white/5">
-              <div className="credential-info mb-6">
-                <h3 className="credential-service text-lg font-semibold capitalize mb-2">{cred.service_name}</h3>
-                <p className="credential-key text-gray-400 font-mono text-sm">{maskApiKey(cred.api_key)}</p>
-              </div>
-              
-              <div className="credential-actions flex items-center justify-between pt-4 border-t border-white/10">
-                <button 
-                  onClick={() => handleToggleActive(cred.id, cred.is_active)}
-                  className={`toggle w-12 h-6 rounded-full relative transition-colors ${cred.is_active ? 'bg-green-500 active' : 'bg-gray-600'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${cred.is_active ? 'translate-x-7 left-1' : 'translate-x-1 left-0'}`} />
-                </button>
-                
-                <div className="flex gap-2">
-                  <button onClick={() => handleOpenModal(cred)} className="btn-icon p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
-                    <Pencil size={18} />
-                  </button>
-                  <button onClick={() => handleDelete(cred.id)} className="btn-icon p-2 text-red-400 hover:text-red-300 rounded-lg hover:bg-white/10 transition-colors">
-                    <Trash2 size={18} />
-                  </button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          {credentials.map((cred) => {
+            const service = serviceLabels[cred.service_name] || { name: cred.service_name, color: '#94a3b8', description: '' };
+            return (
+              <div key={cred.id} className="glass-card" style={{ padding: '28px' }}>
+                {/* Service Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{
+                    width: '40px', height: '40px', borderRadius: '10px',
+                    background: `${service.color}15`, color: service.color,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1rem', fontWeight: 700
+                  }}>
+                    {service.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '2px' }}>{service.name}</h3>
+                    <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{service.description}</p>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {isModalOpen && (
-        <div className="modal-overlay fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="modal-content glass-card bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <div className="modal-header flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">{editingId ? 'Editar Integração' : 'Nova Integração'}</h2>
-              <button onClick={handleCloseModal} className="btn-icon text-gray-400 hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="form-group">
-                  <label className="form-label block text-sm font-medium text-gray-300 mb-1">Serviço</label>
-                  <select 
-                    className="form-select w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
-                    value={formData.service_name}
-                    onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
-                    disabled={!!editingId}
-                  >
-                    <option value="apollo">Apollo</option>
-                    <option value="reoon">Reoon</option>
-                    <option value="resend">Resend</option>
-                    <option value="instantly">Instantly</option>
-                    <option value="smartlead">Smartlead</option>
-                  </select>
+                {/* API Key */}
+                <div style={{
+                  background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '10px 14px',
+                  fontFamily: "'Courier New', monospace", fontSize: '0.8rem', color: '#64748b',
+                  marginBottom: '20px', letterSpacing: '0.5px'
+                }}>
+                  {maskApiKey(cred.api_key)}
                 </div>
-                
-                <div className="form-group">
-                  <label className="form-label block text-sm font-medium text-gray-300 mb-1">Chave de API</label>
-                  <div className="relative">
-                    <input 
-                      type={showApiKey ? 'text' : 'password'}
-                      className="form-input w-full bg-white/5 border border-white/10 rounded-lg pl-4 pr-10 py-2 text-white outline-none focus:border-blue-500"
-                      value={formData.api_key}
-                      onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                      required
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+
+                {/* Actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+                  <button
+                    onClick={() => handleToggleActive(cred.id, cred.is_active)}
+                    className={`toggle ${cred.is_active ? 'active' : ''}`}
+                    title={cred.is_active ? 'Desativar' : 'Ativar'}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleOpenModal(cred)} className="btn-icon" title="Editar">
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cred.id)}
+                      className="btn-icon"
+                      title="Excluir"
+                      style={{ color: '#f43f5e' }}
                     >
-                      {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
               </div>
-              
-              <div className="modal-footer flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
-                <button 
-                  type="button" 
-                  onClick={handleCloseModal}
-                  className="btn btn-secondary px-4 py-2 rounded-lg hover:bg-white/5 transition-colors border border-white/10"
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>{editingId ? 'Editar Integração' : 'Nova Integração'}</h2>
+              <button onClick={handleCloseModal} className="btn-icon" style={{ border: 'none', background: 'transparent' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Serviço</label>
+                <select 
+                  className="form-select"
+                  value={formData.service_name}
+                  onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
+                  disabled={!!editingId}
                 >
+                  <option value="apollo">Apollo.io — Prospecção</option>
+                  <option value="reoon">Reoon — Verificação de E-mails</option>
+                  <option value="resend">Resend — Envio Transacional</option>
+                  <option value="instantly">Instantly — Cold Email</option>
+                  <option value="smartlead">Smartlead — Outbound</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Chave de API</label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type={showApiKey ? 'text' : 'password'}
+                    className="form-input"
+                    value={formData.api_key}
+                    onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                    placeholder="Cole aqui sua chave de API"
+                    required
+                    style={{ paddingRight: '44px' }}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    style={{
+                      position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: '#64748b', cursor: 'pointer'
+                    }}
+                  >
+                    {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
+                  Encontre sua chave de API nas configurações do serviço selecionado.
+                </p>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={handleCloseModal} className="btn btn-secondary">
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="btn btn-primary px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 text-white"
-                >
-                  {isSubmitting ? 'Salvando...' : 'Salvar'}
+                <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting ? 'Salvando...' : (editingId ? 'Atualizar' : 'Adicionar')}
                 </button>
               </div>
             </form>

@@ -115,58 +115,60 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64 animate-fade-in">
-        <div className="spinner w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+        <div className="spinner"></div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in">
       <div className="page-header">
-        <h1 className="page-title text-2xl font-bold">Dashboard</h1>
-        <p className="page-subtitle text-gray-400">Visão operacional do seu outbound</p>
-      </div>
-
-      <div className="stats-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card metric-card cyan flex justify-between items-center p-4 rounded-xl border border-white/10 bg-white/5">
-          <div>
-            <div className="metric-value text-2xl font-bold">{metrics.total_leads}</div>
-            <div className="metric-label text-sm text-gray-400">Leads Totais</div>
-          </div>
-          <div className="metric-icon text-cyan-400"><Users size={24} /></div>
-        </div>
-        
-        <div className="glass-card metric-card emerald flex justify-between items-center p-4 rounded-xl border border-white/10 bg-white/5">
-          <div>
-            <div className="metric-value text-2xl font-bold">{metrics.validated_leads}</div>
-            <div className="metric-label text-sm text-gray-400">Leads Validados</div>
-          </div>
-          <div className="metric-icon text-emerald-400"><ShieldCheck size={24} /></div>
-        </div>
-        
-        <div className="glass-card metric-card violet flex justify-between items-center p-4 rounded-xl border border-white/10 bg-white/5">
-          <div>
-            <div className="metric-value text-2xl font-bold">{metrics.emails_sent_today}</div>
-            <div className="metric-label text-sm text-gray-400">Enviados Hoje</div>
-          </div>
-          <div className="metric-icon text-violet-400"><Send size={24} /></div>
-        </div>
-        
-        <div className="glass-card metric-card amber flex justify-between items-center p-4 rounded-xl border border-white/10 bg-white/5">
-          <div>
-            <div className="metric-value text-2xl font-bold">{metrics.replied_leads}</div>
-            <div className="metric-label text-sm text-gray-400">Respostas</div>
-          </div>
-          <div className="metric-icon text-amber-400"><MessageSquare size={24} /></div>
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">Visão operacional do seu outbound</p>
         </div>
       </div>
 
-      <div className="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-4 rounded-xl border border-white/10 bg-white/5">
-          <h3 className="text-lg font-semibold mb-4">Atividade (7 dias)</h3>
+      <div className="stats-grid" style={{ marginBottom: '32px' }}>
+        <div className="glass-card metric-card cyan">
+          <div>
+            <div className="metric-value">{metrics.total_leads}</div>
+            <div className="metric-label">Leads Totais</div>
+          </div>
+          <div className="metric-icon"><Users size={24} /></div>
+        </div>
+        
+        <div className="glass-card metric-card emerald">
+          <div>
+            <div className="metric-value">{metrics.validated_leads}</div>
+            <div className="metric-label">Leads Validados</div>
+          </div>
+          <div className="metric-icon"><ShieldCheck size={24} /></div>
+        </div>
+        
+        <div className="glass-card metric-card violet">
+          <div>
+            <div className="metric-value">{metrics.emails_sent_today}</div>
+            <div className="metric-label">Enviados Hoje</div>
+          </div>
+          <div className="metric-icon"><Send size={24} /></div>
+        </div>
+        
+        <div className="glass-card metric-card amber">
+          <div>
+            <div className="metric-value">{metrics.replied_leads}</div>
+            <div className="metric-label">Respostas</div>
+          </div>
+          <div className="metric-icon"><MessageSquare size={24} /></div>
+        </div>
+      </div>
+
+      <div className="charts-grid">
+        <div className="glass-card">
+          <h3 className="chart-header">Atividade (7 dias)</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={activityData}>
+            <AreaChart data={activityData} margin={{ left: -20, right: 10 }}>
               <defs>
                 <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.8}/>
@@ -177,53 +179,53 @@ export default function DashboardPage() {
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
-              <Area type="monotone" dataKey="sent" stroke="#00d4ff" fillOpacity={1} fill="url(#colorSent)" name="Enviados" />
-              <Area type="monotone" dataKey="replied" stroke="#f59e0b" fillOpacity={1} fill="url(#colorReplied)" name="Respostas" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#12121f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+              <Area type="monotone" dataKey="sent" stroke="#00d4ff" fillOpacity={1} fill="url(#colorSent)" name="Enviados" strokeWidth={2} />
+              <Area type="monotone" dataKey="replied" stroke="#f59e0b" fillOpacity={1} fill="url(#colorReplied)" name="Respostas" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
         
-        <div className="glass-card p-4 rounded-xl border border-white/10 bg-white/5">
-          <h3 className="text-lg font-semibold mb-4">Distribuição do Funil</h3>
+        <div className="glass-card">
+          <h3 className="chart-header">Distribuição do Funil</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={funnelData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
-              <Bar dataKey="count" fill="#8b5cf6" name="Leads" radius={[0, 4, 4, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+              <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#12121f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Bar dataKey="count" fill="#7c3aed" name="Leads" radius={[0, 4, 4, 0]} barSize={24} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="mt-8">
-        <h3 className="chart-header text-xl font-semibold mb-4">Atividade Recente</h3>
-        <div className="glass-card rounded-xl overflow-hidden border border-white/10 bg-white/5">
+      <div style={{ marginTop: '32px' }}>
+        <h3 className="chart-header">Atividade Recente</h3>
+        <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
           {recentLogs.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="data-table w-full text-left">
-                <thead className="bg-white/5">
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <th className="p-4 font-medium text-sm text-gray-400">E-mail</th>
-                    <th className="p-4 font-medium text-sm text-gray-400">Evento</th>
-                    <th className="p-4 font-medium text-sm text-gray-400">Data</th>
+                    <th>E-mail</th>
+                    <th>Evento</th>
+                    <th>Data</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody>
                   {recentLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                      <td className="p-4 text-sm">{log.leads?.email}</td>
-                      <td className="p-4">
-                        <span className={`badge badge-${log.event_type} text-xs px-2 py-1 rounded-full uppercase tracking-wider bg-white/10`}>
+                    <tr key={log.id}>
+                      <td style={{ fontWeight: 500 }}>{log.leads?.email}</td>
+                      <td>
+                        <span className={`badge badge-${log.event_type}`}>
                           {log.event_type}
                         </span>
                       </td>
-                      <td className="p-4 text-sm text-gray-400">
+                      <td>
                         {new Date(log.created_at).toLocaleString('pt-BR')}
                       </td>
                     </tr>
@@ -232,8 +234,8 @@ export default function DashboardPage() {
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-400">
-              Nenhuma atividade recente encontrada.
+            <div className="empty-state">
+              <p>Nenhuma atividade recente encontrada.</p>
             </div>
           )}
         </div>

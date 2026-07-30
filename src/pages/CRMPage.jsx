@@ -19,7 +19,6 @@ export default function CRMPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch leads that have replied or are booked
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*, campaigns!inner(name, user_id)')
@@ -30,7 +29,6 @@ export default function CRMPage() {
       if (leadsError) throw leadsError;
       setLeads(leadsData || []);
 
-      // Extract unique campaigns for the filter dropdown
       const uniqueCampaigns = Array.from(new Set((leadsData || []).map(l => l.campaigns?.name))).filter(Boolean);
       setCampaigns(uniqueCampaigns);
 
@@ -51,7 +49,6 @@ export default function CRMPage() {
 
       if (error) throw error;
       
-      // Update local state for immediate feedback
       setLeads(prevLeads => 
         prevLeads.map(lead => 
           lead.id === id ? { ...lead, funnel_status: newStatus, updated_at: new Date().toISOString() } : lead
@@ -63,7 +60,6 @@ export default function CRMPage() {
     }
   };
 
-  // Client-side filtering
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
       const matchSearch = 
@@ -89,57 +85,61 @@ export default function CRMPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
         <div className="spinner"></div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in p-6 max-w-7xl mx-auto">
-      <div className="page-header mb-8">
-        <h1 className="page-title text-3xl font-bold">CRM / Inbox</h1>
-        <p className="page-subtitle text-gray-400 mt-1">Leads para tratativa comercial</p>
+    <div className="animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">CRM / Inbox</h1>
+          <p className="page-subtitle">Leads quentes para tratativa comercial</p>
+        </div>
       </div>
 
       {/* Mini Stats */}
-      <div className="crm-stats grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="glass-card crm-stat-card p-6 rounded-xl border border-white/10 bg-white/5 flex flex-col justify-center items-center">
-          <p className="text-gray-400 mb-2">Responderam</p>
-          <p className="text-4xl font-bold text-cyan-400">{repliedCount}</p>
+      <div className="crm-stats">
+        <div className="glass-card crm-stat-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <p className="crm-stat-label">Responderam</p>
+          <p className="crm-stat-value" style={{ color: '#00d4ff' }}>{repliedCount}</p>
         </div>
-        <div className="glass-card crm-stat-card p-6 rounded-xl border border-white/10 bg-white/5 flex flex-col justify-center items-center">
-          <p className="text-gray-400 mb-2">Agendados</p>
-          <p className="text-4xl font-bold text-violet-400">{bookedCount}</p>
+        <div className="glass-card crm-stat-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <p className="crm-stat-label">Agendados</p>
+          <p className="crm-stat-value" style={{ color: '#7c3aed' }}>{bookedCount}</p>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="filters-bar flex flex-col md:flex-row gap-4 mb-6 bg-white/5 p-4 rounded-xl border border-white/10">
-        <div className="search-input-wrapper relative flex-grow">
-          <Search className="search-icon absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+      <div className="filters-bar glass-card" style={{ padding: '16px' }}>
+        <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
+          <Search className="search-icon" size={18} />
           <input 
             type="text" 
             placeholder="Buscar por nome, email ou empresa..." 
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
-            className="form-input w-full bg-black/30 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-primary focus:outline-none transition-colors"
+            className="form-input"
           />
         </div>
-        <div className="flex gap-4 w-full md:w-auto">
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
           <select 
-            className="form-select bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none flex-1 md:w-48 appearance-none"
+            className="form-select"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
+            style={{ minWidth: '180px' }}
           >
             <option value="Todos">Todos os Status</option>
             <option value="Responderam">Responderam</option>
             <option value="Agendados">Agendados</option>
           </select>
           <select 
-            className="form-select bg-black/30 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none flex-1 md:w-48 appearance-none"
+            className="form-select"
             value={campaignFilter}
             onChange={e => setCampaignFilter(e.target.value)}
+            style={{ minWidth: '200px' }}
           >
             <option value="Todos">Todas as Campanhas</option>
             {campaigns.map(c => (
@@ -151,71 +151,72 @@ export default function CRMPage() {
 
       {/* Data Table */}
       {filteredLeads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-16 bg-white/5 rounded-xl border border-white/10 text-center">
-          <Users size={48} className="text-gray-400 mb-4" />
-          <h3 className="text-xl font-medium text-white mb-2">Nenhum lead encontrado</h3>
-          <p className="text-gray-400">
+        <div className="empty-state glass-card">
+          <Users size={48} className="empty-state-icon" />
+          <h3>Nenhum lead encontrado</h3>
+          <p>
             {leads.length === 0 
               ? 'Leads que responderem ou agendarem aparecerão aqui.' 
-              : 'Tente ajustar seus filtros para ver outros resultados.'}
+              : 'Ajuste os filtros de busca para ver resultados.'}
           </p>
         </div>
       ) : (
-        <div className="data-table bg-white/5 rounded-xl border border-white/10 overflow-hidden overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-black/40 text-gray-300 text-sm">
-                <th className="p-4 font-medium">Nome</th>
-                <th className="p-4 font-medium">E-mail</th>
-                <th className="p-4 font-medium">Empresa</th>
-                <th className="p-4 font-medium">Receita Est.</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium">Campanha</th>
-                <th className="p-4 font-medium">Último Contato</th>
-                <th className="p-4 font-medium text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {filteredLeads.map(lead => (
-                <tr key={lead.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="p-4 text-white">{lead.first_name || '—'}</td>
-                  <td className="p-4 text-gray-300">{lead.email}</td>
-                  <td className="p-4 text-gray-300">{lead.company_name || '—'}</td>
-                  <td className="p-4 text-gray-300">{lead.revenue_estimated || '—'}</td>
-                  <td className="p-4">
-                    <span className={`badge badge-${lead.funnel_status} px-2.5 py-1 rounded-full text-xs font-medium`}>
-                      {lead.funnel_status === 'replied' ? 'Respondeu' : 'Agendado'}
-                    </span>
-                  </td>
-                  <td className="p-4 text-gray-300 truncate max-w-[150px]" title={lead.campaigns?.name}>
-                    {lead.campaigns?.name}
-                  </td>
-                  <td className="p-4 text-gray-400 text-sm">
-                    {lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleDateString('pt-BR') : '—'}
-                  </td>
-                  <td className="p-4 text-right">
-                    {lead.funnel_status === 'replied' ? (
-                      <button 
-                        onClick={() => handleStatusToggle(lead.id, lead.funnel_status)}
-                        className="btn btn-sm btn-primary inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      >
-                        <Calendar size={14} />
-                        Marcar Agendado
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => handleStatusToggle(lead.id, lead.funnel_status)}
-                        className="btn btn-sm btn-secondary inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      >
-                        <RotateCcw size={14} />
-                        Reverter
-                      </button>
-                    )}
-                  </td>
+        <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <tr>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Empresa</th>
+                  <th>Receita Est.</th>
+                  <th>Status</th>
+                  <th>Campanha</th>
+                  <th>Último Contato</th>
+                  <th style={{ textAlign: 'right' }}>Ação</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredLeads.map(lead => (
+                  <tr key={lead.id}>
+                    <td style={{ color: '#e2e8f0', fontWeight: 500 }}>{lead.first_name || '—'}</td>
+                    <td>{lead.email}</td>
+                    <td>{lead.company_name || '—'}</td>
+                    <td>{lead.revenue_estimated || '—'}</td>
+                    <td>
+                      <span className={`badge ${lead.funnel_status === 'replied' ? 'badge-replied' : 'badge-booked'}`}>
+                        {lead.funnel_status === 'replied' ? 'Respondeu' : 'Agendado'}
+                      </span>
+                    </td>
+                    <td title={lead.campaigns?.name} style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {lead.campaigns?.name}
+                    </td>
+                    <td>
+                      {lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleDateString('pt-BR') : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {lead.funnel_status === 'replied' ? (
+                        <button 
+                          onClick={() => handleStatusToggle(lead.id, lead.funnel_status)}
+                          className="btn btn-sm btn-primary"
+                          style={{ background: '#3b82f6' }}
+                        >
+                          <Calendar size={14} /> Agendado
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => handleStatusToggle(lead.id, lead.funnel_status)}
+                          className="btn btn-sm btn-secondary"
+                        >
+                          <RotateCcw size={14} /> Reverter
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
