@@ -29,6 +29,35 @@ export default function LeadDetailModal({ lead, onClose }) {
 
   if (!lead) return null;
 
+  const formatLabel = (key) => key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const formatValue = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    if (Array.isArray(value)) return value.length ? value.join(', ') : null;
+    if (typeof value === 'object') return Object.keys(value).length ? JSON.stringify(value) : null;
+    return String(value);
+  };
+
+  const renderInfoEntries = (obj) => {
+    if (!obj) return null;
+    const entries = Object.entries(obj)
+      .map(([key, value]) => [key, formatValue(value)])
+      .filter(([, value]) => value !== null);
+    if (entries.length === 0) return null;
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+        {entries.map(([key, value]) => (
+          <div key={key}>
+            <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{formatLabel(key)}</div>
+            <div style={{ fontSize: '0.8rem', color: '#e2e8f0', wordBreak: 'break-word' }}>{value}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
@@ -55,6 +84,10 @@ export default function LeadDetailModal({ lead, onClose }) {
             <p style={{ color: '#e2e8f0' }}>{lead.revenue_estimated || '—'}</p>
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Telefone</label>
+            <p style={{ color: '#e2e8f0' }}>{lead.phone || '—'}</p>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Validação do E-mail</label>
             <span className={`badge badge-${lead.validation_status}`}>{lead.validation_status}</span>
           </div>
@@ -77,6 +110,20 @@ export default function LeadDetailModal({ lead, onClose }) {
             <p style={{ color: '#e2e8f0' }}>{new Date(lead.created_at).toLocaleString('pt-BR')}</p>
           </div>
         </div>
+
+        {renderInfoEntries(lead.person_info) && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Dados Adicionais da Pessoa</h3>
+            {renderInfoEntries(lead.person_info)}
+          </div>
+        )}
+
+        {renderInfoEntries(lead.company_info) && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Dados da Empresa (para personalização no n8n)</h3>
+            {renderInfoEntries(lead.company_info)}
+          </div>
+        )}
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
           <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '12px' }}>Histórico de Atividade</h3>

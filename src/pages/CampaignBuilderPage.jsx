@@ -261,12 +261,28 @@ export default function CampaignBuilderPage() {
         alert('Não foi possível obter um e-mail verificado para este contato.');
         return;
       }
+      const p = enriched.person || {};
+      const org = p.organization || person.organization || {};
       const { error } = await supabase.from('leads').upsert({
         campaign_id: id,
         email,
-        first_name: enriched.person?.first_name || person.first_name,
-        company_name: enriched.person?.organization?.name || person.organization?.name,
-        revenue_estimated: enriched.person?.organization?.annual_revenue_printed || null,
+        first_name: p.first_name || person.first_name,
+        company_name: org.name || null,
+        revenue_estimated: org.annual_revenue_printed || null,
+        phone: p.sanitized_phone || org.primary_phone || org.phone || null,
+        company_info: Object.keys(org).length ? org : null,
+        person_info: {
+          title: p.title || person.title || null,
+          seniority: p.seniority || null,
+          headline: p.headline || null,
+          linkedin_url: p.linkedin_url || null,
+          twitter_url: p.twitter_url || null,
+          city: p.city || null,
+          state: p.state || null,
+          country: p.country || null,
+          departments: p.departments || null,
+          functions: p.functions || null,
+        },
       }, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
       if (error) throw error;
       showFeedback('✓ Lead adicionado!');
@@ -305,13 +321,27 @@ export default function CampaignBuilderPage() {
       }
       const rows = contacts
         .filter(c => !!c.email)
-        .map(c => ({
-          campaign_id: id,
-          email: c.email,
-          first_name: c.first_name || null,
-          company_name: c.organization_name || null,
-          revenue_estimated: null,
-        }));
+        .map(c => {
+          const org = c.organization || c.account || {};
+          return {
+            campaign_id: id,
+            email: c.email,
+            first_name: c.first_name || null,
+            company_name: c.organization_name || org.name || null,
+            revenue_estimated: org.annual_revenue_printed || null,
+            phone: c.sanitized_phone || org.primary_phone || org.phone || null,
+            company_info: Object.keys(org).length ? org : null,
+            person_info: {
+              last_name: c.last_name || null,
+              title: c.title || null,
+              headline: c.headline || null,
+              linkedin_url: c.linkedin_url || null,
+              twitter_url: c.twitter_url || null,
+              raw_address: c.present_raw_address || null,
+              phone_numbers: c.phone_numbers || null,
+            },
+          };
+        });
       const { error } = await supabase.from('leads').upsert(rows, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
       if (error) throw error;
       setImportMessage(`✓ ${rows.length} contatos importados de "${list.name}"!`);
