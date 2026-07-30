@@ -31,13 +31,19 @@ export const handler = async (event, context) => {
     }
 
     // Fetch Apollo API Key from credentials
-    const { data: creds } = await supabase
+    const { data: creds, error: dbError } = await supabase
       .from('credentials')
-      .select('api_key')
+      .select('api_key, is_active')
       .eq('user_id', user.id)
       .eq('service_name', 'apollo')
-      .eq('is_active', true)
-      .single();
+      .order('is_active', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (dbError) {
+      console.error('Database error fetching credential:', dbError);
+    }
 
     if (!creds || !creds.api_key) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Chave de API do Apollo não encontrada ou inativa nas Integrações.' }) };
