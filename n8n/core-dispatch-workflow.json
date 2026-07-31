@@ -583,7 +583,8 @@
         "promptType": "define",
         "text": "={{ $json.ai_prompt }}",
         "hasOutputParser": true,
-        "messages": {}
+        "messages": {},
+        "needsFallback": true
       }
     },
     {
@@ -599,6 +600,26 @@
         "language": "javaScript",
         "mode": "runOnceForAllItems",
         "jsCode": "const original = $('Montar Prompt IA').item.json;\nconst response = $input.first().json;\nlet subject = original.fallback_subject;\nlet html = original.fallback_html;\ntry {\n  const out = response.output ?? response;\n  if (out && typeof out === 'object' && out.subject && out.html) {\n    subject = out.subject;\n    html = out.html;\n  } else if (typeof response.text === 'string') {\n    const cleaned = response.text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();\n    const parsed = JSON.parse(cleaned);\n    if (parsed.subject && parsed.html) { subject = parsed.subject; html = parsed.html; }\n  }\n} catch (e) {\n  // Resposta da IA inválida — mantém o fallback do template fixo\n}\nreturn [{ json: { ...original, email_subject: subject, email_html: html } }];"
+      }
+    },
+    {
+      "id": "lm_openrouter_fallback",
+      "name": "OpenRouter Chat Model (Fallback)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2900,
+        420
+      ],
+      "parameters": {
+        "model": "openai/gpt-oss-20b:free",
+        "options": {}
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "SUBSTITUA_PELO_ID_DA_CREDENCIAL",
+          "name": "OpenRouter (CORE)"
+        }
       }
     }
   ],
@@ -931,6 +952,17 @@
             "node": "Enviar via Resend",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model (Fallback)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gerar E-mail com IA",
+            "type": "ai_languageModel",
+            "index": 1
           }
         ]
       ]
