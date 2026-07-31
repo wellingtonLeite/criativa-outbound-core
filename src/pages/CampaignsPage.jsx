@@ -4,6 +4,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Play, Pause, Trash2, X, Megaphone } from 'lucide-react';
 
+const STATUS_LABELS = {
+  draft: 'Rascunho',
+  active: 'Ativa',
+  paused: 'Pausada',
+  completed: 'Concluída',
+};
+
 export default function CampaignsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -123,7 +130,7 @@ export default function CampaignsPage() {
                   {campaign.name}
                 </h3>
                 <span className={`badge badge-${campaign.status}`}>
-                  {campaign.status}
+                  {STATUS_LABELS[campaign.status] || campaign.status}
                 </span>
               </div>
               

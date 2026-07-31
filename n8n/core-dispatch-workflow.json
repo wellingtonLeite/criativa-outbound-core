@@ -107,6 +107,102 @@
       "parameters": {}
     },
     {
+      "id": "http_check_complete",
+      "name": "Verificar Conclusão da Campanha",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4160,
+        340
+      ],
+      "notes": "Checa se não sobra mais nenhum lead válido com um próximo step pendente.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/rpc/is_campaign_complete",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_campaign_id: $('Tem Credencial Resend?').item.json.id } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "if_campaign_complete",
+      "name": "Campanha Concluída?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4400,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond_complete",
+              "leftValue": "={{ $json.data ?? $json }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http_mark_completed",
+      "name": "Marcar Campanha Concluída",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4640,
+        280
+      ],
+      "notes": "Ninguém mais vai receber e-mail nesta campanha até que novos leads/templates sejam adicionados — muda status para completed para deixar isso visível no front-end.",
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/campaigns?id=eq.{{ $('Tem Credencial Resend?').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { status: 'completed' } }}",
+        "options": {}
+      }
+    },
+    {
       "id": "http_get_sent_today",
       "name": "Quota Enviada Hoje",
       "type": "n8n-nodes-base.httpRequest",
@@ -864,7 +960,7 @@
       "main": [
         [
           {
-            "node": "Loop Campanhas",
+            "node": "Verificar Conclusão da Campanha",
             "type": "main",
             "index": 0
           }
@@ -872,6 +968,46 @@
         [
           {
             "node": "Reservar Lead (evita duplicidade)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Conclusão da Campanha": {
+      "main": [
+        [
+          {
+            "node": "Campanha Concluída?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campanha Concluída?": {
+      "main": [
+        [
+          {
+            "node": "Marcar Campanha Concluída",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Campanhas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar Campanha Concluída": {
+      "main": [
+        [
+          {
+            "node": "Loop Campanhas",
             "type": "main",
             "index": 0
           }
