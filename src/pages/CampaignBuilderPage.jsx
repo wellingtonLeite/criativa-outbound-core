@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { callApolloProxy } from '../lib/apolloClient';
-import { verifyEmailStatus, verifyEmailsBulk } from '../lib/reoonClient';
+import { verifyEmailStatus, verifyEmailsBulk, callReoonProxy } from '../lib/reoonClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import ValidationStatusBadge from '../components/ValidationStatusBadge';
@@ -107,10 +107,14 @@ export default function CampaignBuilderPage() {
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [scrapedTodayCount, setScrapedTodayCount] = useState(0);
+  const [reoonBalance, setReoonBalance] = useState(null);
 
   useEffect(() => { fetchData(); }, [id]);
   useEffect(() => { fetchLeads(); }, [id]);
   useEffect(() => { fetchScrapedTodayCount(); }, [id]);
+  useEffect(() => {
+    callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
+  }, []);
 
   const fetchScrapedTodayCount = async () => {
     const startOfDay = new Date();
@@ -730,6 +734,28 @@ export default function CampaignBuilderPage() {
             Leads da Campanha
             <span className="badge" style={{ marginLeft: '8px', background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>{leads.length}</span>
           </h2>
+        </div>
+
+        {/* Créditos disponíveis — Reoon (verificação) e uso de raspagem do Apollo (interno) */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
+          <div className="glass-card" style={{ padding: '10px 16px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: '#64748b' }}>Créditos Reoon:</span>
+            {reoonBalance ? (
+              <>
+                <strong style={{ color: '#10b981' }}>{reoonBalance.remaining_daily_credits} diários</strong>
+                <span style={{ color: '#64748b' }}>·</span>
+                <strong style={{ color: '#e2e8f0' }}>{reoonBalance.remaining_instant_credits} instantâneos</strong>
+              </>
+            ) : (
+              <span style={{ color: '#64748b' }}>não configurado</span>
+            )}
+          </div>
+          <div className="glass-card" style={{ padding: '10px 16px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: '#64748b' }}>Raspagem Apollo (uso interno hoje):</span>
+            <strong style={{ color: scrapedTodayCount >= dailyScrapingLimit ? '#f43f5e' : '#e2e8f0' }}>
+              {scrapedTodayCount}/{dailyScrapingLimit}
+            </strong>
+          </div>
         </div>
 
         {/* Sub-tabs */}

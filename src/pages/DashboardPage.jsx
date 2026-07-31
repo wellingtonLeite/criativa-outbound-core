@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Users, ShieldCheck, Send, MessageSquare } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import EventTypeBadge from '../components/EventTypeBadge';
+import { callReoonProxy } from '../lib/reoonClient';
 
 const FUNNEL_STATUS_LABELS = {
   scraped: 'Coletado',
@@ -26,6 +27,42 @@ export default function DashboardPage() {
   const [activityData, setActivityData] = useState([]);
   const [funnelData, setFunnelData] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
+  const [reoonBalance, setReoonBalance] = useState(null);
+  const [scrapingUsage, setScrapingUsage] = useState({ scrapedToday: 0, dailyLimitTotal: 0 });
+
+  useEffect(() => {
+    callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchScrapingUsage = async () => {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const { data: activeCampaigns } = await supabase
+        .from('campaigns')
+        .select('id, daily_scraping_limit')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      const dailyLimitTotal = (activeCampaigns || []).reduce((sum, c) => sum + (c.daily_scraping_limit || 0), 0);
+      const campaignIds = (activeCampaigns || []).map(c => c.id);
+
+      let scrapedToday = 0;
+      if (campaignIds.length > 0) {
+        const { count } = await supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .in('campaign_id', campaignIds)
+          .gte('created_at', startOfDay.toISOString());
+        scrapedToday = count || 0;
+      }
+
+      setScrapingUsage({ scrapedToday, dailyLimitTotal });
+    };
+    fetchScrapingUsage();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -172,6 +209,34 @@ export default function DashboardPage() {
           </div>
           <div className="metric-icon"><MessageSquare size={24} /></div>
         </div>
+      </div>
+
+      <div className="glass-card" style={{ marginBottom: '32px', padding: '16px 20px' }}>
+        <h3 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+          Créditos & Limites
+        </h3>
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          <div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Reoon (verificação de e-mails): </span>
+            {reoonBalance ? (
+              <span style={{ fontSize: '0.85rem' }}>
+                <strong style={{ color: '#10b981' }}>{reoonBalance.remaining_daily_credits}</strong> diários ·{' '}
+                <strong style={{ color: '#e2e8f0' }}>{reoonBalance.remaining_instant_credits}</strong> instantâneos
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>não configurado</span>
+            )}
+          </div>
+          <div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Raspagem Apollo hoje (uso interno, campanhas ativas): </span>
+            <strong style={{ fontSize: '0.85rem', color: scrapingUsage.scrapedToday >= scrapingUsage.dailyLimitTotal && scrapingUsage.dailyLimitTotal > 0 ? '#f43f5e' : '#e2e8f0' }}>
+              {scrapingUsage.scrapedToday}/{scrapingUsage.dailyLimitTotal}
+            </strong>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '10px' }}>
+          A Reoon não informa quando os créditos diários renovam via API — pelo nome, o esperado é reset diário, mas não há uma data garantida. O uso do Apollo é apenas nossa contagem interna de contatos importados hoje (não é o saldo real da conta Apollo, que só aparece no painel deles).
+        </p>
       </div>
 
       <div className="charts-grid">
