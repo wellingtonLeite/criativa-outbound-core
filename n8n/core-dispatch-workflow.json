@@ -562,6 +562,22 @@
         "options": {}
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "id": "wait_rate_limit",
+      "name": "Aguardar (Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        100
+      ],
+      "notes": "Evita 429 (rate limit) do modelo gratuito da OpenRouter entre chamadas consecutivas.",
+      "parameters": {
+        "resume": "timeInterval",
+        "waitAmount": 5,
+        "waitUnit": "seconds"
+      }
     }
   ],
   "connections": {
@@ -802,7 +818,7 @@
       "main": [
         [
           {
-            "node": "Gerar E-mail com IA",
+            "node": "Aguardar (Rate Limit)",
             "type": "main",
             "index": 0
           }
@@ -858,6 +874,17 @@
         [
           {
             "node": "Loop Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar (Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "Gerar E-mail com IA",
             "type": "main",
             "index": 0
           }
