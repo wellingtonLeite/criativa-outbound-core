@@ -3,6 +3,8 @@ import { X, Linkedin, Twitter, Globe } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CompanyAvatar from './CompanyAvatar';
 import ValidationStatusBadge from './ValidationStatusBadge';
+import FunnelStatusBadge from './FunnelStatusBadge';
+import EventTypeBadge from './EventTypeBadge';
 
 const joinList = (value) => {
   if (!value) return null;
@@ -161,7 +163,7 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Status no Funil</label>
-            <span className={`badge badge-${lead.funnel_status}`}>{lead.funnel_status}</span>
+            <FunnelStatusBadge status={lead.funnel_status} />
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Step Atual da Sequência</label>
@@ -220,7 +222,7 @@ export default function LeadDetailModal({ lead, onClose }) {
               {logs.map(log => (
                 <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#94a3b8' }}>
                   <span>
-                    <span className={`badge badge-${log.event_type}`} style={{ marginRight: '8px' }}>{log.event_type}</span>
+                    <span style={{ marginRight: '8px', display: 'inline-block' }}><EventTypeBadge type={log.event_type} /></span>
                     {log.email_templates?.subject || `Step ${log.email_templates?.step_number ?? '—'}`}
                   </span>
                   <span>{new Date(log.created_at).toLocaleString('pt-BR')}</span>

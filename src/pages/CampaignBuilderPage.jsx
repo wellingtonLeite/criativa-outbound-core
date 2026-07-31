@@ -6,6 +6,7 @@ import { verifyEmailStatus, verifyEmailsBulk } from '../lib/reoonClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import ValidationStatusBadge from '../components/ValidationStatusBadge';
+import FunnelStatusBadge from '../components/FunnelStatusBadge';
 import { ArrowLeft, Plus, Trash2, Save, Play, Pause, X, Database, Mail, Users, Search, List, Download } from 'lucide-react';
 
 // A Apollo às vezes devolve telefone como string, às vezes como
@@ -856,7 +857,7 @@ export default function CampaignBuilderPage() {
                         </div>
                       </td>
                       <td><ValidationStatusBadge status={lead.validation_status} /></td>
-                      <td><span className={`badge badge-${lead.funnel_status}`}>{lead.funnel_status}</span></td>
+                      <td><FunnelStatusBadge status={lead.funnel_status} /></td>
                     </tr>
                   ))}
                 </tbody>

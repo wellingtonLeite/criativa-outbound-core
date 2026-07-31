@@ -3,6 +3,16 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, ShieldCheck, Send, MessageSquare } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import EventTypeBadge from '../components/EventTypeBadge';
+
+const FUNNEL_STATUS_LABELS = {
+  scraped: 'Coletado',
+  in_sequence: 'Em Sequência',
+  replied: 'Respondeu',
+  bounced: 'Retornou (Bounce)',
+  booked: 'Agendado',
+  unsubscribed: 'Descadastrado',
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -85,7 +95,7 @@ export default function DashboardPage() {
           }, {});
           
           const formattedFunnel = Object.keys(funnelCounts).map(status => ({
-            name: status,
+            name: FUNNEL_STATUS_LABELS[status] || status,
             count: funnelCounts[status]
           }));
           
@@ -221,9 +231,7 @@ export default function DashboardPage() {
                     <tr key={log.id}>
                       <td style={{ fontWeight: 500 }}>{log.leads?.email}</td>
                       <td>
-                        <span className={`badge badge-${log.event_type}`}>
-                          {log.event_type}
-                        </span>
+                        <EventTypeBadge type={log.event_type} />
                       </td>
                       <td>
                         {new Date(log.created_at).toLocaleString('pt-BR')}

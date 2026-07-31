@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import ValidationStatusBadge from '../components/ValidationStatusBadge';
+import FunnelStatusBadge from '../components/FunnelStatusBadge';
 import { Search, Users } from 'lucide-react';
 
 export default function LeadsPage() {
@@ -89,7 +90,7 @@ export default function LeadsPage() {
           </select>
           <select className="form-select" value={funnelFilter} onChange={e => setFunnelFilter(e.target.value)} style={{ minWidth: '160px' }}>
             <option value="Todos">Todo o Funil</option>
-            <option value="scraped">Scraped</option>
+            <option value="scraped">Coletado</option>
             <option value="in_sequence">Em Sequência</option>
             <option value="replied">Respondeu</option>
             <option value="bounced">Bounced</option>
@@ -147,7 +148,7 @@ export default function LeadsPage() {
                       {lead.campaigns?.name}
                     </td>
                     <td><ValidationStatusBadge status={lead.validation_status} /></td>
-                    <td><span className={`badge badge-${lead.funnel_status}`}>{lead.funnel_status}</span></td>
+                    <td><FunnelStatusBadge status={lead.funnel_status} /></td>
                     <td>{new Date(lead.created_at).toLocaleDateString('pt-BR')}</td>
                   </tr>
                 ))}
