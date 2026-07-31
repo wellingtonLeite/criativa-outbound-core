@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Linkedin, Twitter, Globe } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CompanyAvatar from './CompanyAvatar';
+import ValidationStatusBadge from './ValidationStatusBadge';
 
 const joinList = (value) => {
   if (!value) return null;
@@ -156,7 +157,7 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Validação do E-mail</label>
-            <span className={`badge badge-${lead.validation_status}`}>{lead.validation_status}</span>
+            <ValidationStatusBadge status={lead.validation_status} />
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Status no Funil</label>

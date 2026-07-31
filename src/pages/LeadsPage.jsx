@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
+import ValidationStatusBadge from '../components/ValidationStatusBadge';
 import { Search, Users } from 'lucide-react';
 
 export default function LeadsPage() {
@@ -145,7 +146,7 @@ export default function LeadsPage() {
                     <td title={lead.campaigns?.name} style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {lead.campaigns?.name}
                     </td>
-                    <td><span className={`badge badge-${lead.validation_status}`}>{lead.validation_status}</span></td>
+                    <td><ValidationStatusBadge status={lead.validation_status} /></td>
                     <td><span className={`badge badge-${lead.funnel_status}`}>{lead.funnel_status}</span></td>
                     <td>{new Date(lead.created_at).toLocaleDateString('pt-BR')}</td>
                   </tr>
