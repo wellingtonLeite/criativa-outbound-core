@@ -843,6 +843,7 @@ export default function CampaignBuilderPage() {
                     <th>Empresa</th>
                     <th>Validação</th>
                     <th>Status no Funil</th>
+                    <th>E-mail</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -858,6 +859,18 @@ export default function CampaignBuilderPage() {
                       </td>
                       <td><ValidationStatusBadge status={lead.validation_status} /></td>
                       <td><FunnelStatusBadge status={lead.funnel_status} /></td>
+                      <td>
+                        {lead.current_step > 0 ? (
+                          <span
+                            className="badge badge-sent"
+                            title={lead.last_contacted_at ? `Último envio: ${new Date(lead.last_contacted_at).toLocaleString('pt-BR')}` : undefined}
+                          >
+                            ✓ Enviado ({lead.current_step}){lead.last_contacted_at ? ` — ${new Date(lead.last_contacted_at).toLocaleDateString('pt-BR')}` : ''}
+                          </span>
+                        ) : (
+                          <span className="badge badge-pending">Ainda não enviado</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
