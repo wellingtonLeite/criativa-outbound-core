@@ -63,18 +63,16 @@ Substituir as variáveis no `subject` e `body_html`:
 
 ### 5.5. Se houver credencial OpenRouter: personalizar via IA (com fallback)
 
-Monta um prompt com `lead_first_name`, `lead_company`, `company_info` (indústria, descrição, palavras-chave, porte) e `person_info` (cargo, senioridade), pedindo pra reescrever o assunto/corpo do passo 5 mantendo a mesma intenção. Chama:
-```
-POST https://openrouter.ai/api/v1/chat/completions
-Headers:
-  Authorization: Bearer <openrouter_api_key>
-  Content-Type: application/json
-Body: {
-  "model": "google/gemma-4-31b-it:free",
-  "messages": [{ "role": "user", "content": "<prompt pedindo JSON {subject, html}>" }]
-}
-```
-O texto gerado fica em `choices[0].message.content`. Faça `JSON.parse` do conteúdo (removendo blocos ```json se vierem) — se falhar o parse, ou o node der erro, **use o e-mail do passo 5 sem parar a execução**. Modelo gratuito da OpenRouter; a lista de modelos `:free` disponíveis muda com o tempo — confira em `GET https://openrouter.ai/api/v1/models` antes de trocar.
+Monta um prompt com `lead_first_name`, `lead_company`, `company_info` (indústria, descrição, palavras-chave, porte, ano de fundação, localização) e `person_info` (cargo, headline, senioridade) — um briefing de copywriting completo (assunto curto e específico, primeira frase provando pesquisa real sobre a empresa, sem jargão corporativo, sem pedir reunião direto, 60-90 palavras). Veja o texto completo do prompt no node "Montar Prompt IA" do workflow.
+
+**Implementação com nodes nativos do n8n (recomendada)**, em vez de um HTTP Request cru:
+- **OpenRouter Chat Model** (`@n8n/n8n-nodes-langchain.lmChatOpenRouter`) — usa uma credencial `openRouterApi` própria do n8n (Settings → Credentials → New → OpenRouter), não a chave embutida em código. Modelo padrão: `google/gemma-4-31b-it:free` (gratuito — confira modelos disponíveis em `GET https://openrouter.ai/api/v1/models`, filtrando por `:free`).
+- **Structured Output Parser** (`@n8n/n8n-nodes-langchain.outputParserStructured`) — força a IA a devolver `{"subject": "...", "html": "..."}` já estruturado, sem precisar fazer parse manual de texto.
+- **Basic LLM Chain** (`@n8n/n8n-nodes-langchain.chainLlm`) — conecta o prompt (`={{ $json.ai_prompt }}`) ao Chat Model e ao Output Parser.
+- Um node **Wait** de 5s antes da chamada evita 429 (rate limit) — o tier gratuito da OpenRouter permite 20 req/minuto e 50/dia sem créditos comprados (1000/dia com ao menos US$10 em créditos).
+- Se a IA falhar (erro, parse inválido, rate limit) o Code node seguinte usa o e-mail do passo 5 sem parar a execução.
+
+**Após importar o workflow em uma nova instância do n8n**: a credencial OpenRouter não é portada (por segurança, nunca é exportada em texto). Crie uma nova em Settings → Credentials → New → OpenRouter, cole a chave, e reselecione essa credencial no node "OpenRouter Chat Model".
 
 ### 6. Enviar via Resend
 ```

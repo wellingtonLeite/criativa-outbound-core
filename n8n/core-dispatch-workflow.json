@@ -428,50 +428,6 @@
       }
     },
     {
-      "id": "http_call_openrouter",
-      "name": "Gerar E-mail com IA",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2760,
-        100
-      ],
-      "notes": "Modelo gratuito da OpenRouter. Troque em model se este ficar indisponível — veja https://openrouter.ai/models?max_price=0",
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.openrouter_api_key }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: 'google/gemma-4-31b-it:free', messages: [ { role: 'user', content: $json.ai_prompt } ] } }}",
-        "options": {}
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "id": "code_apply_ai_email",
-      "name": "Aplicar E-mail da IA",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3000,
-        100
-      ],
-      "parameters": {
-        "language": "javaScript",
-        "mode": "runOnceForAllItems",
-        "jsCode": "const original = $('Montar Prompt IA').item.json;\nconst response = $input.first().json;\nlet subject = original.fallback_subject;\nlet html = original.fallback_html;\ntry {\n  const content = response.choices?.[0]?.message?.content;\n  if (content) {\n    const cleaned = content.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();\n    const parsed = JSON.parse(cleaned);\n    if (parsed.subject && parsed.html) {\n      subject = parsed.subject;\n      html = parsed.html;\n    }\n  }\n} catch (e) {\n  // Resposta da IA inválida — mantém o fallback do template fixo\n}\nreturn [{ json: { ...original, email_subject: subject, email_html: html } }];"
-      }
-    },
-    {
       "id": "http_send_resend",
       "name": "Enviar via Resend",
       "type": "n8n-nodes-base.httpRequest",
@@ -577,6 +533,72 @@
         "resume": "timeInterval",
         "waitAmount": 5,
         "waitUnit": "seconds"
+      }
+    },
+    {
+      "id": "lm_openrouter",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2900,
+        260
+      ],
+      "notes": "Credencial OpenRouter precisa ser recriada em cada instância do n8n (Settings > Credentials) — não é versionada aqui por segurança.",
+      "parameters": {
+        "model": "google/gemma-4-31b-it:free",
+        "options": {}
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "SUBSTITUA_PELO_ID_DA_CREDENCIAL",
+          "name": "OpenRouter (CORE)"
+        }
+      }
+    },
+    {
+      "id": "output_parser_email",
+      "name": "Parser E-mail (Subject+HTML)",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        3020,
+        260
+      ],
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"subject\": \"Assunto do e-mail\",\n  \"html\": \"<p>Corpo do e-mail em HTML</p>\"\n}"
+      }
+    },
+    {
+      "id": "chain_llm_email",
+      "name": "Gerar E-mail com IA",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2880,
+        100
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.ai_prompt }}",
+        "hasOutputParser": true,
+        "messages": {}
+      }
+    },
+    {
+      "id": "code_apply_ai_email",
+      "name": "Aplicar E-mail da IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        100
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const original = $('Montar Prompt IA').item.json;\nconst response = $input.first().json;\nlet subject = original.fallback_subject;\nlet html = original.fallback_html;\ntry {\n  const out = response.output ?? response;\n  if (out && typeof out === 'object' && out.subject && out.html) {\n    subject = out.subject;\n    html = out.html;\n  } else if (typeof response.text === 'string') {\n    const cleaned = response.text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();\n    const parsed = JSON.parse(cleaned);\n    if (parsed.subject && parsed.html) { subject = parsed.subject; html = parsed.html; }\n  }\n} catch (e) {\n  // Resposta da IA inválida — mantém o fallback do template fixo\n}\nreturn [{ json: { ...original, email_subject: subject, email_html: html } }];"
       }
     }
   ],
@@ -825,28 +847,6 @@
         ]
       ]
     },
-    "Gerar E-mail com IA": {
-      "main": [
-        [
-          {
-            "node": "Aplicar E-mail da IA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Aplicar E-mail da IA": {
-      "main": [
-        [
-          {
-            "node": "Enviar via Resend",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Enviar via Resend": {
       "main": [
         [
@@ -885,6 +885,50 @@
         [
           {
             "node": "Gerar E-mail com IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gerar E-mail com IA",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser E-mail (Subject+HTML)": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Gerar E-mail com IA",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar E-mail com IA": {
+      "main": [
+        [
+          {
+            "node": "Aplicar E-mail da IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar E-mail da IA": {
+      "main": [
+        [
+          {
+            "node": "Enviar via Resend",
             "type": "main",
             "index": 0
           }
