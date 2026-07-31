@@ -6,11 +6,17 @@
       "name": "A cada 15 minutos",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1400, 300],
+      "position": [
+        -1400,
+        300
+      ],
       "parameters": {
         "rule": {
           "interval": [
-            { "field": "minutes", "minutesInterval": 15 }
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
           ]
         }
       }
@@ -20,7 +26,10 @@
       "name": "Configuração",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1160, 300],
+      "position": [
+        -1160,
+        300
+      ],
       "notes": "EDITE estes 4 valores antes de ativar o workflow.",
       "parameters": {
         "language": "javaScript",
@@ -33,15 +42,24 @@
       "name": "Buscar Campanhas Ativas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-920, 300],
+      "position": [
+        -920,
+        300
+      ],
       "parameters": {
         "method": "GET",
         "url": "={{ $json.supabase_url }}/rest/v1/campaigns?status=eq.active&select=*",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.supabase_service_role_key }}"
+            }
           ]
         },
         "options": {}
@@ -52,7 +70,10 @@
       "name": "Normalizar Campanhas",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-680, 300],
+      "position": [
+        -680,
+        300
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
@@ -64,7 +85,10 @@
       "name": "Loop Campanhas",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [-440, 300],
+      "position": [
+        -440,
+        300
+      ],
       "parameters": {
         "batchSize": 1,
         "options": {}
@@ -75,7 +99,10 @@
       "name": "Fim",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [-200, 140],
+      "position": [
+        -200,
+        140
+      ],
       "parameters": {}
     },
     {
@@ -83,15 +110,24 @@
       "name": "Quota Enviada Hoje",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-200, 460],
+      "position": [
+        -200,
+        460
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/rpc/get_emails_sent_today_for_campaign",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
           ]
         },
         "sendBody": true,
@@ -105,7 +141,10 @@
       "name": "Calcular Quota Restante",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [40, 460],
+      "position": [
+        40,
+        460
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
@@ -117,17 +156,26 @@
       "name": "Tem Quota?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [280, 460],
+      "position": [
+        280,
+        460
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "combinator": "and",
           "conditions": [
             {
               "id": "cond_quota",
               "leftValue": "={{ $json.remaining_quota }}",
               "rightValue": 0,
-              "operator": { "type": "number", "operation": "gt" }
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
             }
           ]
         },
@@ -139,7 +187,10 @@
       "name": "Buscar Credencial Resend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [560, 400],
+      "position": [
+        560,
+        400
+      ],
       "alwaysOutputData": true,
       "notes": "alwaysOutputData=true garante 1 item mesmo se a busca não achar nenhuma credencial (array vazio), para o node seguinte sempre rodar.",
       "parameters": {
@@ -148,8 +199,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
           ]
         },
         "options": {}
@@ -160,7 +217,10 @@
       "name": "Extrair Credencial",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [800, 400],
+      "position": [
+        800,
+        400
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
@@ -172,7 +232,10 @@
       "name": "Buscar Credencial OpenRouter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [800, 560],
+      "position": [
+        800,
+        560
+      ],
       "alwaysOutputData": true,
       "notes": "Opcional — se o dono da campanha não tiver OpenRouter configurado, o e-mail usa só o template fixo. alwaysOutputData=true garante 1 item mesmo sem credencial encontrada.",
       "parameters": {
@@ -181,8 +244,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
           ]
         },
         "options": {}
@@ -193,7 +262,10 @@
       "name": "Extrair Credencial OpenRouter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1040, 560],
+      "position": [
+        1040,
+        560
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
@@ -205,17 +277,27 @@
       "name": "Tem Credencial Resend?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1040, 400],
+      "position": [
+        1040,
+        400
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "combinator": "and",
           "conditions": [
             {
               "id": "cond_resend",
               "leftValue": "={{ $json.resend_api_key }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ]
         },
@@ -227,15 +309,24 @@
       "name": "Buscar Fila de Envio",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 340],
+      "position": [
+        1320,
+        340
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/rpc/get_send_queue",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
           ]
         },
         "sendBody": true,
@@ -249,7 +340,10 @@
       "name": "Normalizar Fila",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 340],
+      "position": [
+        1560,
+        340
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
@@ -261,7 +355,10 @@
       "name": "Loop Leads",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [1800, 340],
+      "position": [
+        1800,
+        340
+      ],
       "parameters": {
         "batchSize": 1,
         "options": {}
@@ -272,7 +369,10 @@
       "name": "Montar E-mail",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2040, 200],
+      "position": [
+        2040,
+        200
+      ],
       "notes": "Monta o e-mail base (fallback) por substituição literal. Se houver credencial OpenRouter, os nodes seguintes tentam gerar uma versão personalizada por IA e sobrescrevem email_subject/email_html.",
       "parameters": {
         "language": "javaScript",
@@ -285,17 +385,27 @@
       "name": "Tem Credencial OpenRouter?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2280, 200],
+      "position": [
+        2280,
+        200
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "combinator": "and",
           "conditions": [
             {
               "id": "cond_openrouter",
               "leftValue": "={{ $json.openrouter_api_key }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ]
         },
@@ -307,11 +417,14 @@
       "name": "Montar Prompt IA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2520, 100],
+      "position": [
+        2520,
+        100
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const row = $input.first().json;\nconst company = row.company_info || {};\nconst person = row.person_info || {};\nconst details = [\n  company.industry ? `Indústria: ${company.industry}` : null,\n  (company.short_description || company.description) ? `Descrição da empresa: ${company.short_description || company.description}` : null,\n  Array.isArray(company.keywords) && company.keywords.length ? `Palavras-chave: ${company.keywords.slice(0, 8).join(', ')}` : null,\n  company.estimated_num_employees ? `Porte: ${company.estimated_num_employees} funcionários` : null,\n  person.title ? `Cargo do contato: ${person.title}` : null,\n  person.seniority ? `Senioridade: ${person.seniority}` : null,\n].filter(Boolean).join('\\n');\n\nconst prompt = `Você é um redator de cold email B2B em português do Brasil. Reescreva o e-mail abaixo para ficar mais pessoal e relevante para esta empresa específica, mantendo a mesma intenção/oferta e um tamanho aproximado. Não invente dados que não foram fornecidos.\n\nNome do lead: ${row.lead_first_name || ''}\nEmpresa: ${row.lead_company || ''}\n${details || 'Nenhum dado adicional disponível sobre a empresa.'}\n\nE-mail base:\nAssunto: ${row.fallback_subject}\nCorpo (HTML): ${row.fallback_html}\n\nResponda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:\n{\"subject\": \"...\", \"html\": \"...\"}`;\n\nreturn [{ json: { ...row, ai_prompt: prompt } }];"
+        "jsCode": "const row = $input.first().json;\nconst company = row.company_info || {};\nconst person = row.person_info || {};\nconst details = [\n  company.industry ? `Indústria: ${company.industry}` : null,\n  (company.short_description || company.description) ? `Descrição da empresa: ${company.short_description || company.description}` : null,\n  Array.isArray(company.keywords) && company.keywords.length ? `Palavras-chave/serviços: ${company.keywords.slice(0, 10).join(', ')}` : null,\n  company.estimated_num_employees ? `Porte: ${company.estimated_num_employees} funcionários` : null,\n  company.founded_year ? `Fundada em: ${company.founded_year}` : null,\n  (company.city || company.state) ? `Localização: ${[company.city, company.state].filter(Boolean).join(', ')}` : null,\n  person.title ? `Cargo do contato: ${person.title}` : null,\n  person.headline ? `Headline/perfil do contato: ${person.headline}` : null,\n  person.seniority ? `Senioridade: ${person.seniority}` : null,\n].filter(Boolean).join('\\n');\n\nconst prompt = `Você é um copywriter especialista em cold email B2B para o mercado brasileiro. Sua missão é escrever um e-mail curto, pessoal e nada comercial que faça o destinatário sentir que alguém pesquisou a empresa dele de verdade antes de escrever — e queira responder por curiosidade, não por pressão.\n\nREGRAS OBRIGATÓRIAS (siga todas):\n1. Assunto: até 6 palavras, específico para ESTA empresa, desperta curiosidade. PROIBIDO usar assuntos genéricos como \"Oportunidade para X\", \"Pergunta rápida sobre X\" ou qualquer fórmula que sirva pra qualquer empresa. Cite algo concreto e real sobre a empresa (ver dados abaixo).\n2. Primeira frase: prove que você pesquisou essa empresa especificamente, citando um dado real dos fornecidos abaixo. Nunca comece falando de você ou da Criativa Marketing.\n3. Mencione a Criativa Marketing só depois da primeira frase, como contexto breve (o que ela faz), nunca como autopromoção ou lista de qualidades.\n4. Tom: como um humano escrevendo pra outro humano, não um robô de disparo em massa. Frases curtas. PROIBIDO jargão corporativo (sinergia, soluções inovadoras, parceria estratégica, revolucionar, etc).\n5. PROIBIDO pedir reunião/call diretamente. Termine com uma pergunta de baixo compromisso que convide resposta (ex: pedir a opinião do destinatário, perguntar se faz sentido, oferecer mandar um exemplo curto).\n6. Tamanho do corpo: 60 a 90 palavras, sem contar saudação e assinatura.\n7. Não invente nenhum dado que não esteja listado abaixo — se a informação não foi fornecida, não mencione.\n8. Se os dados abaixo forem poucos ou genéricos, foque no que for mais específico e real (nome da empresa, indústria, localização) em vez de generalizar sobre o setor inteiro.\n\nDADOS REAIS DESTA EMPRESA E DESTE CONTATO (use o máximo possível, com naturalidade):\nNome do lead: ${row.lead_first_name || ''}\nEmpresa: ${row.lead_company || ''}\n${details || 'Nenhum dado adicional disponível além do nome da empresa — seja específico sobre a empresa/segmento mesmo assim, sem generalizar demais.'}\n\nE-mail de referência (mantenha só a intenção/oferta central — reescreva completamente o texto e o assunto usando os dados reais acima):\nAssunto: ${row.fallback_subject}\nCorpo: ${row.fallback_html}\n\nResponda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, no formato exato:\n{\"subject\": \"...\", \"html\": \"...\"}`;\n\nreturn [{ json: { ...row, ai_prompt: prompt } }];"
       }
     },
     {
@@ -319,7 +432,10 @@
       "name": "Gerar E-mail com IA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2760, 100],
+      "position": [
+        2760,
+        100
+      ],
       "notes": "Modelo gratuito da OpenRouter. Troque em model se este ficar indisponível — veja https://openrouter.ai/models?max_price=0",
       "parameters": {
         "method": "POST",
@@ -327,7 +443,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $json.openrouter_api_key }}" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.openrouter_api_key }}"
+            }
           ]
         },
         "sendBody": true,
@@ -342,7 +461,10 @@
       "name": "Aplicar E-mail da IA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3000, 100],
+      "position": [
+        3000,
+        100
+      ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
@@ -354,14 +476,20 @@
       "name": "Enviar via Resend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3240, 200],
+      "position": [
+        3240,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.resend.com/emails",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $json.resend_api_key }}" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.resend_api_key }}"
+            }
           ]
         },
         "sendBody": true,
@@ -376,15 +504,24 @@
       "name": "Registrar Envio",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3480, 200],
+      "position": [
+        3480,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/outreach_logs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
           ]
         },
         "sendBody": true,
@@ -399,15 +536,24 @@
       "name": "Atualizar Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3720, 200],
+      "position": [
+        3720,
+        200
+      ],
       "parameters": {
         "method": "PATCH",
         "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/leads?id=eq.{{ $('Montar E-mail').item.json.lead_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Configuração').first().json.supabase_service_role_key }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}" }
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
           ]
         },
         "sendBody": true,
@@ -420,91 +566,303 @@
   ],
   "connections": {
     "A cada 15 minutos": {
-      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Configuração": {
-      "main": [[{ "node": "Buscar Campanhas Ativas", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Buscar Campanhas Ativas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Buscar Campanhas Ativas": {
-      "main": [[{ "node": "Normalizar Campanhas", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Normalizar Campanhas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normalizar Campanhas": {
-      "main": [[{ "node": "Loop Campanhas", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop Campanhas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Loop Campanhas": {
       "main": [
-        [{ "node": "Fim", "type": "main", "index": 0 }],
-        [{ "node": "Quota Enviada Hoje", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quota Enviada Hoje",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Quota Enviada Hoje": {
-      "main": [[{ "node": "Calcular Quota Restante", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Calcular Quota Restante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Calcular Quota Restante": {
-      "main": [[{ "node": "Tem Quota?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Tem Quota?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Tem Quota?": {
       "main": [
-        [{ "node": "Buscar Credencial Resend", "type": "main", "index": 0 }],
-        [{ "node": "Loop Campanhas", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Buscar Credencial Resend",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Campanhas",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Buscar Credencial Resend": {
-      "main": [[{ "node": "Extrair Credencial", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extrair Credencial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extrair Credencial": {
-      "main": [[{ "node": "Buscar Credencial OpenRouter", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Buscar Credencial OpenRouter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Buscar Credencial OpenRouter": {
-      "main": [[{ "node": "Extrair Credencial OpenRouter", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extrair Credencial OpenRouter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extrair Credencial OpenRouter": {
-      "main": [[{ "node": "Tem Credencial Resend?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Tem Credencial Resend?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Tem Credencial Resend?": {
       "main": [
-        [{ "node": "Buscar Fila de Envio", "type": "main", "index": 0 }],
-        [{ "node": "Loop Campanhas", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Buscar Fila de Envio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Campanhas",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Buscar Fila de Envio": {
-      "main": [[{ "node": "Normalizar Fila", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Normalizar Fila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normalizar Fila": {
-      "main": [[{ "node": "Loop Leads", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Loop Leads": {
       "main": [
-        [{ "node": "Loop Campanhas", "type": "main", "index": 0 }],
-        [{ "node": "Montar E-mail", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Loop Campanhas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar E-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Montar E-mail": {
-      "main": [[{ "node": "Tem Credencial OpenRouter?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Tem Credencial OpenRouter?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Tem Credencial OpenRouter?": {
       "main": [
-        [{ "node": "Montar Prompt IA", "type": "main", "index": 0 }],
-        [{ "node": "Enviar via Resend", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Montar Prompt IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar via Resend",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Montar Prompt IA": {
-      "main": [[{ "node": "Gerar E-mail com IA", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Gerar E-mail com IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gerar E-mail com IA": {
-      "main": [[{ "node": "Aplicar E-mail da IA", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Aplicar E-mail da IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Aplicar E-mail da IA": {
-      "main": [[{ "node": "Enviar via Resend", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Enviar via Resend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Enviar via Resend": {
-      "main": [[{ "node": "Registrar Envio", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Registrar Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Registrar Envio": {
-      "main": [[{ "node": "Atualizar Lead", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Atualizar Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Atualizar Lead": {
-      "main": [[{ "node": "Loop Leads", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
