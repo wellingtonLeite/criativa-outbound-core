@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, ShieldCheck, Send, MessageSquare } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import EventTypeBadge from '../components/EventTypeBadge';
 import { callReoonProxy } from '../lib/reoonClient';
+import { estimateApolloCredits } from '../lib/apolloClient';
 
 const FUNNEL_STATUS_LABELS = {
   scraped: 'Coletado',
@@ -28,11 +30,17 @@ export default function DashboardPage() {
   const [funnelData, setFunnelData] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
   const [reoonBalance, setReoonBalance] = useState(null);
+  const [apolloEstimate, setApolloEstimate] = useState(null);
   const [scrapingUsage, setScrapingUsage] = useState({ scrapedToday: 0, dailyLimitTotal: 0 });
 
   useEffect(() => {
     callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    estimateApolloCredits(user.id).then(setApolloEstimate).catch(() => setApolloEstimate(null));
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -233,9 +241,22 @@ export default function DashboardPage() {
               {scrapingUsage.scrapedToday}/{scrapingUsage.dailyLimitTotal}
             </strong>
           </div>
+          <div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Créditos Apollo estimados: </span>
+            {apolloEstimate ? (
+              <strong style={{ fontSize: '0.85rem', color: apolloEstimate.estimatedRemaining <= 10 ? '#f43f5e' : '#3b82f6' }}>
+                {apolloEstimate.estimatedRemaining}/{apolloEstimate.calibratedBalance}
+                {apolloEstimate.renewsAt && (apolloEstimate.renewalPassed
+                  ? <span style={{ color: '#f59e0b' }}> (recalibrar)</span>
+                  : ` (renova ${new Date(apolloEstimate.renewsAt).toLocaleDateString('pt-BR')})`)}
+              </strong>
+            ) : (
+              <Link to="/integrations" style={{ fontSize: '0.85rem', color: '#00d4ff' }}>calibrar em Integrações</Link>
+            )}
+          </div>
         </div>
         <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '10px' }}>
-          A Reoon não informa quando os créditos diários renovam via API — pelo nome, o esperado é reset diário, mas não há uma data garantida. O uso do Apollo é apenas nossa contagem interna de contatos importados hoje (não é o saldo real da conta Apollo, que só aparece no painel deles).
+          A Reoon não informa quando os créditos diários renovam via API — pelo nome, o esperado é reset diário, mas não há uma data garantida. A Apollo não expõe saldo de créditos nem renovação via API (só limites de chamada) — o número "estimado" é calculado a partir do saldo que você informa manualmente em Integrações, descontando os leads com e-mail trazidos pela Apollo desde então.
         </p>
       </div>
 

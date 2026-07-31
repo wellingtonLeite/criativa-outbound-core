@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { callReoonProxy } from '../lib/reoonClient';
+import { estimateApolloCredits } from '../lib/apolloClient';
 import { Plus, Pencil, Trash2, Eye, EyeOff, Key, X } from 'lucide-react';
 
 export default function IntegrationsPage() {
@@ -15,6 +16,9 @@ export default function IntegrationsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [reoonBalance, setReoonBalance] = useState(null);
+  const [apolloEstimate, setApolloEstimate] = useState(null);
+  const [calibratingApollo, setCalibratingApollo] = useState(false);
+  const [calibrationForm, setCalibrationForm] = useState({ balance: '', renewsAt: '' });
 
   useEffect(() => {
     if (user) fetchCredentials();
@@ -34,6 +38,11 @@ export default function IntegrationsPage() {
       const hasActiveReoon = (data || []).some(c => c.service_name === 'reoon' && c.is_active);
       if (hasActiveReoon) {
         callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
+      }
+
+      const hasActiveApollo = (data || []).some(c => c.service_name === 'apollo' && c.is_active);
+      if (hasActiveApollo) {
+        estimateApolloCredits(user.id).then(setApolloEstimate).catch(() => setApolloEstimate(null));
       }
     } catch (error) {
       console.error('Error fetching credentials:', error);
@@ -88,6 +97,30 @@ export default function IntegrationsPage() {
       await fetchCredentials();
     } catch (error) {
       console.error('Error toggling status:', error);
+    }
+  };
+
+  const handleOpenCalibration = (cred) => {
+    setCalibratingApollo(cred.id);
+    setCalibrationForm({
+      balance: cred.credit_balance ?? '',
+      renewsAt: cred.credit_renews_at ? cred.credit_renews_at.slice(0, 10) : '',
+    });
+  };
+
+  const handleSaveCalibration = async (credId) => {
+    try {
+      const { error } = await supabase.from('credentials').update({
+        credit_balance: calibrationForm.balance === '' ? null : Number(calibrationForm.balance),
+        credit_balance_as_of: new Date().toISOString(),
+        credit_renews_at: calibrationForm.renewsAt ? new Date(calibrationForm.renewsAt).toISOString() : null,
+      }).eq('id', credId);
+      if (error) throw error;
+      setCalibratingApollo(false);
+      await fetchCredentials();
+    } catch (error) {
+      console.error('Erro ao salvar calibração de créditos Apollo:', error);
+      alert('Erro ao salvar: ' + error.message);
     }
   };
 
@@ -181,6 +214,67 @@ export default function IntegrationsPage() {
                     Créditos restantes hoje: <strong style={{ color: '#10b981' }}>{reoonBalance.remaining_daily_credits}</strong>
                     {' · '}Instantâneos: <strong style={{ color: '#e2e8f0' }}>{reoonBalance.remaining_instant_credits}</strong>
                   </p>
+                )}
+
+                {cred.service_name === 'apollo' && calibratingApollo === cred.id ? (
+                  <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <p style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '8px' }}>
+                      Copie do painel da Apollo (Configurações → Créditos e atividade → Uso de créditos).
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Créditos disponíveis"
+                        className="form-input"
+                        style={{ fontSize: '0.8rem' }}
+                        value={calibrationForm.balance}
+                        onChange={(e) => setCalibrationForm({ ...calibrationForm, balance: e.target.value })}
+                      />
+                      <input
+                        type="date"
+                        className="form-input"
+                        style={{ fontSize: '0.8rem' }}
+                        value={calibrationForm.renewsAt}
+                        onChange={(e) => setCalibrationForm({ ...calibrationForm, renewsAt: e.target.value })}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => handleSaveCalibration(cred.id)} className="btn btn-sm btn-primary">Salvar</button>
+                      <button onClick={() => setCalibratingApollo(false)} className="btn btn-sm btn-secondary">Cancelar</button>
+                    </div>
+                  </div>
+                ) : cred.service_name === 'apollo' && (
+                  <div style={{ marginBottom: '20px' }}>
+                    {apolloEstimate ? (
+                      <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                        Estimado: <strong style={{ color: apolloEstimate.estimatedRemaining <= 10 ? '#f43f5e' : '#3b82f6' }}>
+                          {apolloEstimate.estimatedRemaining}
+                        </strong> de {apolloEstimate.calibratedBalance} restantes
+                        {apolloEstimate.renewsAt && (
+                          <>
+                            {' · renova '}
+                            {apolloEstimate.renewalPassed ? (
+                              <span style={{ color: '#f59e0b' }}>já deveria ter renovado — recalibre</span>
+                            ) : (
+                              new Date(apolloEstimate.renewsAt).toLocaleDateString('pt-BR')
+                            )}
+                          </>
+                        )}
+                        {' · '}
+                        <button onClick={() => handleOpenCalibration(cred)} style={{ background: 'none', border: 'none', color: '#00d4ff', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
+                          recalibrar
+                        </button>
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        Saldo não calibrado —{' '}
+                        <button onClick={() => handleOpenCalibration(cred)} style={{ background: 'none', border: 'none', color: '#00d4ff', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
+                          informar saldo do painel Apollo
+                        </button>
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* Actions */}

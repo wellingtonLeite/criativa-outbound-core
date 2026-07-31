@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { callApolloProxy } from '../lib/apolloClient';
 import { verifyEmailStatus, verifyEmailsBulk, callReoonProxy } from '../lib/reoonClient';
+import { estimateApolloCredits } from '../lib/apolloClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import ValidationStatusBadge from '../components/ValidationStatusBadge';
@@ -108,6 +109,7 @@ export default function CampaignBuilderPage() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [scrapedTodayCount, setScrapedTodayCount] = useState(0);
   const [reoonBalance, setReoonBalance] = useState(null);
+  const [apolloEstimate, setApolloEstimate] = useState(null);
 
   useEffect(() => { fetchData(); }, [id]);
   useEffect(() => { fetchLeads(); }, [id]);
@@ -115,6 +117,10 @@ export default function CampaignBuilderPage() {
   useEffect(() => {
     callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
   }, []);
+  useEffect(() => {
+    if (!campaign?.user_id) return;
+    estimateApolloCredits(campaign.user_id).then(setApolloEstimate).catch(() => setApolloEstimate(null));
+  }, [campaign?.user_id]);
 
   const fetchScrapedTodayCount = async () => {
     const startOfDay = new Date();
@@ -755,6 +761,19 @@ export default function CampaignBuilderPage() {
             <strong style={{ color: scrapedTodayCount >= dailyScrapingLimit ? '#f43f5e' : '#e2e8f0' }}>
               {scrapedTodayCount}/{dailyScrapingLimit}
             </strong>
+          </div>
+          <div className="glass-card" style={{ padding: '10px 16px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: '#64748b' }}>Créditos Apollo (estimado):</span>
+            {apolloEstimate ? (
+              <strong style={{ color: apolloEstimate.estimatedRemaining <= 10 ? '#f43f5e' : '#3b82f6' }}>
+                {apolloEstimate.estimatedRemaining}/{apolloEstimate.calibratedBalance}
+                {apolloEstimate.renewsAt && (apolloEstimate.renewalPassed
+                  ? ' (recalibrar)'
+                  : ` (renova ${new Date(apolloEstimate.renewsAt).toLocaleDateString('pt-BR')})`)}
+              </strong>
+            ) : (
+              <Link to="/integrations" style={{ color: '#00d4ff' }}>calibrar</Link>
+            )}
           </div>
         </div>
 
