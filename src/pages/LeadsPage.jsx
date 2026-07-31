@@ -4,7 +4,8 @@ import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 import ValidationStatusBadge from '../components/ValidationStatusBadge';
 import FunnelStatusBadge from '../components/FunnelStatusBadge';
-import { Search, Users } from 'lucide-react';
+import { verifyEmailsBulk } from '../lib/reoonClient';
+import { Search, Users, RefreshCw } from 'lucide-react';
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
@@ -16,6 +17,9 @@ export default function LeadsPage() {
   const [campaignFilter, setCampaignFilter] = useState('Todas');
   const [funnelFilter, setFunnelFilter] = useState('Todos');
   const [validationFilter, setValidationFilter] = useState('Todos');
+
+  const [revalidating, setRevalidating] = useState(false);
+  const [reoonProgress, setReoonProgress] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -35,6 +39,36 @@ export default function LeadsPage() {
       console.error('Erro ao buscar leads:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pendingLeads = useMemo(() => leads.filter(l => l.validation_status === 'pending'), [leads]);
+
+  const handleRevalidateAllPending = async () => {
+    if (pendingLeads.length === 0) return;
+    setRevalidating(true);
+    setReoonProgress({ status: 'creating', total: pendingLeads.length });
+    try {
+      const statusByEmail = await verifyEmailsBulk(pendingLeads.map(l => l.email), { maxWaitMs: 120000, onProgress: setReoonProgress });
+      let resolved = 0;
+      for (const lead of pendingLeads) {
+        const newStatus = statusByEmail.get(lead.email) || 'pending';
+        if (newStatus === 'pending') continue;
+        resolved++;
+        const update = { validation_status: newStatus };
+        if (newStatus === 'valid' && lead.funnel_status === 'scraped') {
+          update.funnel_status = 'in_sequence';
+        }
+        await supabase.from('leads').update(update).eq('id', lead.id);
+      }
+      await fetchData();
+      alert(`✓ ${resolved} de ${pendingLeads.length} leads pendentes foram validados.`);
+    } catch (error) {
+      console.error('Erro ao revalidar leads pendentes:', error);
+      alert('Erro ao revalidar leads pendentes: ' + error.message);
+    } finally {
+      setRevalidating(false);
+      setReoonProgress(null);
     }
   };
 
@@ -69,7 +103,50 @@ export default function LeadsPage() {
           <h1 className="page-title">Leads</h1>
           <p className="page-subtitle">Todos os contatos coletados, em todas as campanhas ({leads.length})</p>
         </div>
+        {pendingLeads.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setValidationFilter('pending')}
+              className="btn btn-secondary"
+              title="Filtrar só os pendentes"
+            >
+              Ver Pendentes ({pendingLeads.length})
+            </button>
+            <button
+              onClick={handleRevalidateAllPending}
+              disabled={revalidating}
+              className="btn btn-primary"
+            >
+              <RefreshCw size={16} /> {revalidating ? 'Revalidando...' : `Revalidar Pendentes (${pendingLeads.length})`}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Progresso da higienização de e-mails (Reoon) */}
+      {reoonProgress && (
+        <div className="glass-card" style={{
+          display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', marginBottom: '20px',
+          border: '1px solid rgba(16,185,129,0.35)', background: 'rgba(16,185,129,0.07)'
+        }}>
+          <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px', flexShrink: 0 }}></div>
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>
+              Higienizando e-mails na Reoon{reoonProgress.total ? ` — ${reoonProgress.total} contato${reoonProgress.total > 1 ? 's' : ''}` : ''}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+              {reoonProgress.status === 'creating' && 'Enviando e-mails para verificação...'}
+              {reoonProgress.status === 'waiting' && 'Na fila de processamento da Reoon...'}
+              {reoonProgress.status === 'running' && (
+                `Verificando${reoonProgress.checked != null ? ` — ${reoonProgress.checked}/${reoonProgress.total} checados` : ''}${reoonProgress.progress != null ? ` (${Math.round(reoonProgress.progress)}%)` : ''}`
+              )}
+              {reoonProgress.status === 'completed' && 'Concluído — salvando resultados...'}
+              {reoonProgress.status === 'failed' && 'Falha na verificação — os e-mails ficarão como "pendente".'}
+              {reoonProgress.status === 'timeout' && 'Demorando mais que o esperado — os não confirmados ficarão "pendente".'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters Bar */}
       <div className="filters-bar glass-card" style={{ padding: '16px' }}>
@@ -93,7 +170,7 @@ export default function LeadsPage() {
             <option value="scraped">Coletado</option>
             <option value="in_sequence">Em Sequência</option>
             <option value="replied">Respondeu</option>
-            <option value="bounced">Bounced</option>
+            <option value="bounced">Retornou (Bounce)</option>
             <option value="booked">Agendado</option>
             <option value="unsubscribed">Descadastrado</option>
           </select>

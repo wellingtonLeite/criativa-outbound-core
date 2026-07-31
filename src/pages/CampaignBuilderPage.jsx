@@ -493,7 +493,7 @@ export default function CampaignBuilderPage() {
       // de verdade). Assíncrono na Reoon; ficam 'pending' se a tarefa falhar ou não completar a tempo.
       if (newRowsToInsert.length > 0) {
         setReoonProgress({ status: 'creating', total: newRowsToInsert.length });
-        const statusByEmail = await verifyEmailsBulk(newRowsToInsert.map(r => r.email), { onProgress: setReoonProgress });
+        const statusByEmail = await verifyEmailsBulk(newRowsToInsert.map(r => r.email), { maxWaitMs: 120000, onProgress: setReoonProgress });
         for (const row of newRowsToInsert) {
           row.validation_status = statusByEmail.get(row.email) || 'pending';
           // Lead novo com e-mail válido já entra pronto para a sequência de disparo
