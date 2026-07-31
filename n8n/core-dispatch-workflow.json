@@ -34,7 +34,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "return [{\n  json: {\n    supabase_url: 'https://SEU-PROJECT-REF.supabase.co',\n    supabase_service_role_key: 'COLE_AQUI_A_SERVICE_ROLE_KEY',\n    resend_from: 'Nome da Empresa <onboarding@seudominio.com>',\n  }\n}];"
+        "jsCode": "return [{\n  json: {\n    supabase_url: 'https://SEU-PROJECT-REF.supabase.co',\n    supabase_service_role_key: 'COLE_AQUI_A_SERVICE_ROLE_KEY',\n    resend_reply_to: 'anamartins@criativamarketing.com',\n    resend_from: 'Nome da Empresa <onboarding@seudominio.com>',\n  }\n}];"
       }
     },
     {
@@ -377,7 +377,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "const cfg = $('Configuração').first().json;\nconst row = $input.first().json;\nconst fill = (tpl) => (tpl || '')\n  .replaceAll('{{first_name}}', row.lead_first_name || '')\n  .replaceAll('{{company_name}}', row.lead_company || '');\nconst fallbackSubject = fill(row.subject);\nconst fallbackHtml = fill(row.body_html);\nreturn [{ json: {\n  ...row,\n  fallback_subject: fallbackSubject,\n  fallback_html: fallbackHtml,\n  email_subject: fallbackSubject,\n  email_html: fallbackHtml,\n  resend_from: cfg.resend_from,\n} }];"
+        "jsCode": "const cfg = $('Configuração').first().json;\nconst row = $input.first().json;\nconst fill = (tpl) => (tpl || '')\n  .replaceAll('{{first_name}}', row.lead_first_name || '')\n  .replaceAll('{{company_name}}', row.lead_company || '');\nconst fallbackSubject = fill(row.subject);\nconst fallbackHtml = fill(row.body_html);\nreturn [{ json: {\n  ...row,\n  fallback_subject: fallbackSubject,\n  fallback_html: fallbackHtml,\n  email_subject: fallbackSubject,\n  email_html: fallbackHtml,\n  resend_from: cfg.resend_from,\n  reply_to: cfg.resend_reply_to,\n} }];"
       }
     },
     {
@@ -450,7 +450,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { from: $json.resend_from, to: [$json.lead_email], subject: $json.email_subject, html: $json.email_html } }}",
+        "jsonBody": "={{ { from: $json.resend_from, to: [$json.lead_email], subject: $json.email_subject, html: $json.email_html, reply_to: [$json.reply_to] } }}",
         "options": {}
       },
       "onError": "continueRegularOutput"
