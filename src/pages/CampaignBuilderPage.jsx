@@ -88,6 +88,7 @@ export default function CampaignBuilderPage() {
   const [leads, setLeads] = useState([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [revalidatingPending, setRevalidatingPending] = useState(false);
+  const [reoonProgress, setReoonProgress] = useState(null); // { status, total, checked, progress }
 
   const [searchResults, setSearchResults] = useState([]);
   const [searchingLeads, setSearchingLeads] = useState(false);
@@ -271,8 +272,9 @@ export default function CampaignBuilderPage() {
     const pending = leads.filter(l => l.validation_status === 'pending');
     if (pending.length === 0) return;
     setRevalidatingPending(true);
+    setReoonProgress({ status: 'creating', total: pending.length });
     try {
-      const statusByEmail = await verifyEmailsBulk(pending.map(l => l.email), { maxWaitMs: 120000 });
+      const statusByEmail = await verifyEmailsBulk(pending.map(l => l.email), { maxWaitMs: 120000, onProgress: setReoonProgress });
       let resolved = 0;
       for (const lead of pending) {
         const newStatus = statusByEmail.get(lead.email) || 'pending';
@@ -292,6 +294,7 @@ export default function CampaignBuilderPage() {
       alert('Erro ao revalidar leads pendentes: ' + error.message);
     } finally {
       setRevalidatingPending(false);
+      setReoonProgress(null);
     }
   };
 
@@ -487,8 +490,8 @@ export default function CampaignBuilderPage() {
       // Valida os e-mails dos leads novos em lote via Reoon (modo power — detecta catch-all
       // de verdade). Assíncrono na Reoon; ficam 'pending' se a tarefa falhar ou não completar a tempo.
       if (newRowsToInsert.length > 0) {
-        setImportMessage(`Validando ${newRowsToInsert.length} e-mails na Reoon...`);
-        const statusByEmail = await verifyEmailsBulk(newRowsToInsert.map(r => r.email));
+        setReoonProgress({ status: 'creating', total: newRowsToInsert.length });
+        const statusByEmail = await verifyEmailsBulk(newRowsToInsert.map(r => r.email), { onProgress: setReoonProgress });
         for (const row of newRowsToInsert) {
           row.validation_status = statusByEmail.get(row.email) || 'pending';
           // Lead novo com e-mail válido já entra pronto para a sequência de disparo
@@ -520,6 +523,7 @@ export default function CampaignBuilderPage() {
       setImportMessage('Erro ao importar: ' + error.message);
     } finally {
       setImportingListId(null);
+      setReoonProgress(null);
     }
   };
 
@@ -743,6 +747,31 @@ export default function CampaignBuilderPage() {
             <Users size={16} /> Leads Adicionados
           </button>
         </div>
+
+        {/* Progresso da higienização de e-mails (Reoon) — visível em qualquer sub-aba */}
+        {reoonProgress && (
+          <div className="glass-card" style={{
+            display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', marginBottom: '20px',
+            border: '1px solid rgba(16,185,129,0.35)', background: 'rgba(16,185,129,0.07)'
+          }}>
+            <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px', flexShrink: 0 }}></div>
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>
+                Higienizando e-mails na Reoon{reoonProgress.total ? ` — ${reoonProgress.total} contato${reoonProgress.total > 1 ? 's' : ''}` : ''}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {reoonProgress.status === 'creating' && 'Enviando e-mails para verificação...'}
+                {(reoonProgress.status === 'waiting') && 'Na fila de processamento da Reoon...'}
+                {reoonProgress.status === 'running' && (
+                  `Verificando${reoonProgress.checked != null ? ` — ${reoonProgress.checked}/${reoonProgress.total} checados` : ''}${reoonProgress.progress != null ? ` (${Math.round(reoonProgress.progress)}%)` : ''}`
+                )}
+                {reoonProgress.status === 'completed' && 'Concluído — salvando resultados...'}
+                {reoonProgress.status === 'failed' && 'Falha na verificação — os e-mails ficarão como "pendente" (pode revalidar depois).'}
+                {reoonProgress.status === 'timeout' && 'Demorando mais que o esperado — os e-mails não confirmados ficarão "pendente" (revalide depois).'}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sub-tab: Importar Lista do Apollo */}
         {leadsSubTab === 'import' && (

@@ -41,14 +41,20 @@ export async function verifyEmailStatus(email) {
 // usada na importação de listas. Cria uma tarefa assíncrona na Reoon e faz polling
 // até completar ou até o tempo máximo de espera, retornando um Map email -> validation_status.
 // E-mails que não forem resolvidos a tempo (ou em caso de erro) ficam 'pending'.
-export async function verifyEmailsBulk(emails, { pollIntervalMs = 3000, maxWaitMs = 60000 } = {}) {
+// onProgress(status) é chamado a cada checagem com o progresso real devolvido pela Reoon
+// (status: 'creating' | 'waiting' | 'running' | 'completed' | 'failed', count_checked, count_total).
+export async function verifyEmailsBulk(emails, { pollIntervalMs = 3000, maxWaitMs = 60000, onProgress } = {}) {
   const result = new Map(emails.map(e => [e, 'pending']));
   if (emails.length === 0) return result;
 
+  const report = (status, extra = {}) => onProgress?.({ status, total: emails.length, ...extra });
+
   try {
+    report('creating');
     const task = await callReoonProxy('create_bulk_task', { emails, name: 'CORE Import' });
     if (task.status !== 'success' || !task.task_id) {
       console.warn('Falha ao criar tarefa de verificação em lote na Reoon:', task);
+      report('failed');
       return result;
     }
 
@@ -60,18 +66,23 @@ export async function verifyEmailsBulk(emails, { pollIntervalMs = 3000, maxWaitM
         for (const [email, info] of Object.entries(taskResult.results)) {
           result.set(email, mapReoonStatus(info.status));
         }
+        report('completed', { checked: taskResult.count_checked, progress: taskResult.progress_percentage });
         return result;
       }
       if (taskResult.status === 'file_not_found' || taskResult.status === 'file_loading_error') {
         console.warn('Tarefa de verificação em lote da Reoon falhou:', taskResult);
+        report('failed');
         return result;
       }
       // 'waiting' / 'running' — continua o polling
+      report(taskResult.status || 'running', { checked: taskResult.count_checked, progress: taskResult.progress_percentage });
     }
     console.warn('Tempo máximo de espera atingido para a verificação em lote da Reoon (task', task.task_id, ')');
+    report('timeout');
     return result;
   } catch (error) {
     console.warn('Verificação em lote da Reoon falhou:', error.message);
+    report('failed');
     return result;
   }
 }
