@@ -3,19 +3,20 @@
   "nodes": [
     {
       "id": "trigger_schedule",
-      "name": "A cada 15 minutos",
+      "name": "A cada 60 minutos",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
         -1400,
         300
       ],
+      "notes": "Intervalo alto o suficiente para nunca sobrepor uma execução anterior (que pode levar 30+ min processando leads com espera de 2,5 min entre envios).",
       "parameters": {
         "rule": {
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 15
+              "minutesInterval": 60
             }
           ]
         }
@@ -34,7 +35,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "return [{\n  json: {\n    supabase_url: 'https://SEU-PROJECT-REF.supabase.co',\n    supabase_service_role_key: 'COLE_AQUI_A_SERVICE_ROLE_KEY',\n    resend_reply_to: 'anamartins@criativamarketing.com',\n    resend_from: 'Nome da Empresa <onboarding@seudominio.com>',\n  }\n}];"
+        "jsCode": "return [{\n  json: {\n    supabase_url: 'https://SEU-PROJECT-REF.supabase.co',\n    supabase_service_role_key: 'COLE_AQUI_A_SERVICE_ROLE_KEY',\n    resend_reply_to: ['anamartins@criativamarketing.com', 'wellington.leite@criativamarketing.com'],\n    resend_from: 'Nome da Empresa <onboarding@seudominio.com>',\n  }\n}];"
       }
     },
     {
@@ -365,6 +366,38 @@
       }
     },
     {
+      "id": "http_claim_lead",
+      "name": "Reservar Lead (evita duplicidade)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        208
+      ],
+      "notes": "Marca o lead como já avançado ANTES de gerar/enviar o e-mail, para que execuções concorrentes do cron não peguem o mesmo lead na fila (evita envio duplicado).",
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Configuração').first().json.supabase_url }}/rest/v1/leads?id=eq.{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Configuração').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Configuração').first().json.supabase_service_role_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { current_step: $json.next_step } }}",
+        "options": {}
+      }
+    },
+    {
       "id": "code_build_email",
       "name": "Montar E-mail",
       "type": "n8n-nodes-base.code",
@@ -450,7 +483,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { from: $json.resend_from, to: [$json.lead_email], subject: $json.email_subject, html: $json.email_html, reply_to: [$json.reply_to] } }}",
+        "jsonBody": "={{ { from: $json.resend_from, to: [$json.lead_email], subject: $json.email_subject, html: $json.email_html, reply_to: $json.reply_to } }}",
         "options": {}
       },
       "onError": "continueRegularOutput"
@@ -518,6 +551,23 @@
         "options": {}
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "id": "wait_between_sends",
+      "name": "Aguardar Entre Envios",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4160,
+        224
+      ],
+      "webhookId": "b1e2c3d4-5678-4abc-9def-0123456789ab",
+      "notes": "Espaça os envios reais (2,5 min entre cada) para reduzir risco de bounce/spam por rajada.",
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 2.5,
+        "unit": "minutes"
+      }
     },
     {
       "id": "wait_rate_limit",
@@ -821,6 +871,17 @@
         ],
         [
           {
+            "node": "Reservar Lead (evita duplicidade)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar Lead (evita duplicidade)": {
+      "main": [
+        [
+          {
             "node": "Montar E-mail",
             "type": "main",
             "index": 0
@@ -891,6 +952,17 @@
       ]
     },
     "Atualizar Lead": {
+      "main": [
+        [
+          {
+            "node": "Aguardar Entre Envios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar Entre Envios": {
       "main": [
         [
           {
