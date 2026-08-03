@@ -485,14 +485,18 @@ export default function CampaignBuilderPage() {
       // O limite diário de raspagem vale só para leads NOVOS — reimportar/atualizar
       // um lead que já existe nesta campanha não consome a cota.
       const { data: existing, error: existingError } = await supabase
-        .from('leads').select('email, validation_status').eq('campaign_id', id);
+        .from('leads').select('email, validation_status, funnel_status').eq('campaign_id', id);
       if (existingError) throw existingError;
-      const existingStatusByEmail = new Map((existing || []).map(l => [l.email, l.validation_status]));
+      const existingStatusByEmail = new Map((existing || []).map(l => [l.email, l]));
 
-      // Leads já existentes mantêm a validação anterior (não gasta cota do Reoon de novo).
+      // Leads já existentes mantêm a validação anterior (não gasta cota do Reoon de novo)
+      // e mantêm o funnel_status atual.
       const existingRows = allRows
         .filter(r => existingStatusByEmail.has(r.email))
-        .map(r => ({ ...r, validation_status: existingStatusByEmail.get(r.email) }));
+        .map(r => {
+          const ext = existingStatusByEmail.get(r.email);
+          return { ...r, validation_status: ext.validation_status, funnel_status: ext.funnel_status };
+        });
       const newRows = allRows.filter(r => !existingStatusByEmail.has(r.email));
 
       const remainingQuota = Math.max(0, dailyScrapingLimit - scrapedTodayCount);
@@ -510,6 +514,8 @@ export default function CampaignBuilderPage() {
           // (get_send_queue só pega leads em 'in_sequence').
           if (row.validation_status === 'valid') {
             row.funnel_status = 'in_sequence';
+          } else {
+            row.funnel_status = 'scraped';
           }
         }
       }
