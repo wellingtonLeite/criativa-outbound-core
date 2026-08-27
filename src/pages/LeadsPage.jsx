@@ -22,7 +22,8 @@ import {
   ShieldCheck,
   Clock,
   XCircle,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 
 export default function LeadsPage() {
@@ -43,17 +44,35 @@ export default function LeadsPage() {
   // Selection state for bulk operations
   const [selectedLeadIds, setSelectedLeadIds] = useState(new Set());
 
-  // Filters State
+  // Filters State — Default Quality filter shows Valid and Pending leads
   const [searchText, setSearchText] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('Todas');
   const [funnelFilter, setFunnelFilter] = useState('Todos');
-  const [validationFilter, setValidationFilter] = useState('Todos');
+  const [validationFilter, setValidationFilter] = useState('valid_pending');
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  const handlePurgeInvalidLeads = async () => {
+    if (stats.invalid === 0) {
+      showToast('Nenhum lead inválido na base para purgar.');
+      return;
+    }
+    const count = await mockDataStore.purgeInvalidLeads();
+    setSelectedLeadIds(new Set());
+    showToast(`🗑️ ${count} leads inválidos foram removidos permanentemente da base.`);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLeadIds.size === 0) return;
+    const count = selectedLeadIds.size;
+    await mockDataStore.deleteLeadsBulk(Array.from(selectedLeadIds));
+    setSelectedLeadIds(new Set());
+    showToast(`🗑️ ${count} leads selecionados foram excluídos da base.`);
   };
 
   const handleExportReport = async () => {
@@ -125,7 +144,15 @@ export default function LeadsPage() {
 
       const matchCampaign = campaignFilter === 'Todas' || lead.campaigns?.name === campaignFilter;
       const matchFunnel = funnelFilter === 'Todos' || lead.funnel_status === funnelFilter;
-      const matchValidation = validationFilter === 'Todos' || lead.validation_status === validationFilter;
+      
+      let matchValidation = true;
+      if (validationFilter === 'valid_pending') {
+        matchValidation = lead.validation_status !== 'invalid';
+      } else if (validationFilter === 'Todos') {
+        matchValidation = true;
+      } else {
+        matchValidation = lead.validation_status === validationFilter;
+      }
 
       return matchSearch && matchCampaign && matchFunnel && matchValidation;
     });
@@ -207,6 +234,26 @@ export default function LeadsPage() {
             )}
           </button>
 
+          {/* Botão de Ação Rápida: Purgar Inválidos */}
+          {stats.invalid > 0 && (
+            <button
+              onClick={handlePurgeInvalidLeads}
+              className="btn btn-secondary"
+              title="Remover permanentemente todos os leads inválidos da base"
+              style={{
+                borderColor: 'rgba(244, 63, 94, 0.4)',
+                color: '#f43f5e',
+                background: 'rgba(244, 63, 94, 0.08)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Trash2 size={15} />
+              <span>🗑️ Purgar Inválidos ({stats.invalid})</span>
+            </button>
+          )}
+
           {/* Botão Primário: Minerar Novos Leads (Sem Jargões) */}
           <button
             onClick={() => navigate('/prospector')}
@@ -264,7 +311,7 @@ export default function LeadsPage() {
           title={stats.pending > 0 ? 'Clique para ir para a tela de Higienização (Passo 2)' : undefined}
         >
           <div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>🟡 Pendentes de Validação</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>🟡 Aguardando Validação</div>
             <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#f59e0b' }}>{stats.pending}</div>
           </div>
           <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
@@ -272,14 +319,29 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        {/* Inválidos */}
-        <div className="glass-card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '3px solid #f43f5e' }}>
+        {/* Inválidos com Ação Rápida de Limpeza */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '14px 18px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            borderLeft: '3px solid #f43f5e',
+            cursor: stats.invalid > 0 ? 'pointer' : 'default'
+          }}
+          onClick={stats.invalid > 0 ? handlePurgeInvalidLeads : undefined}
+          title={stats.invalid > 0 ? 'Clique para purgar todos os leads inválidos da base' : undefined}
+        >
           <div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>🔴 Inválidos Descartados</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>🔴 Inválidos Descartados</span>
+              {stats.invalid > 0 && <span style={{ fontSize: '0.68rem', color: '#f43f5e', textDecoration: 'underline' }}>(Purgar)</span>}
+            </div>
             <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#f43f5e' }}>{stats.invalid}</div>
           </div>
           <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f43f5e' }}>
-            <XCircle size={18} />
+            <Trash2 size={18} />
           </div>
         </div>
       </div>
@@ -309,6 +371,13 @@ export default function LeadsPage() {
               <Send size={14} /> Disparar WhatsApp ({selectedLeadIds.size})
             </button>
             <button
+              onClick={handleBulkDelete}
+              className="btn btn-sm btn-secondary"
+              style={{ color: '#f43f5e', borderColor: 'rgba(244,63,94,0.3)' }}
+            >
+              <Trash2 size={14} /> Excluir ({selectedLeadIds.size})
+            </button>
+            <button
               onClick={() => setSelectedLeadIds(new Set())}
               className="btn btn-sm btn-secondary"
             >
@@ -322,7 +391,7 @@ export default function LeadsPage() {
       <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(240px, 1.6fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr)',
+          gridTemplateColumns: 'minmax(240px, 1.4fr) minmax(160px, 1fr) minmax(170px, 1fr) minmax(190px, 1.2fr)',
           gap: '14px',
           alignItems: 'center'
         }}>
@@ -350,23 +419,24 @@ export default function LeadsPage() {
           <div>
             <select className="form-select" value={funnelFilter} onChange={e => setFunnelFilter(e.target.value)}>
               <option value="Todos">Todo o Funil</option>
-              <option value="scraped">Coletado</option>
-              <option value="in_sequence">Em Sequência</option>
-              <option value="replied">Respondeu</option>
-              <option value="booked">Agendado</option>
+              <option value="scraped">Coletado (Aguardando Envio)</option>
+              <option value="in_sequence">Em Sequência (Disparado)</option>
+              <option value="replied">Respondeu 🔥</option>
+              <option value="booked">Reunião Agendada 🎯</option>
               <option value="bounced">Retornou (Bounce)</option>
               <option value="unsubscribed">Descadastrado</option>
             </select>
           </div>
 
-          {/* Filtro de Validação */}
+          {/* Filtro de Validação — Default: Válidos & Pendentes */}
           <div>
             <select className="form-select" value={validationFilter} onChange={e => setValidationFilter(e.target.value)}>
-              <option value="Todos">Toda Validação</option>
-              <option value="valid">Válido</option>
-              <option value="catch_all">Catch-all</option>
-              <option value="pending">Pendente</option>
-              <option value="invalid">Inválido</option>
+              <option value="valid_pending">Qualidade: Válidos & Pendentes (Padrão)</option>
+              <option value="Todos">Todos os Status (inclui Inválidos)</option>
+              <option value="valid">🟢 Apenas Válidos</option>
+              <option value="pending">🟡 Apenas Aguardando Validação</option>
+              <option value="catch_all">🟡 Apenas Catch-all</option>
+              <option value="invalid">🔴 Apenas Inválidos</option>
             </select>
           </div>
         </div>
@@ -403,7 +473,7 @@ export default function LeadsPage() {
                 setSearchText('');
                 setCampaignFilter('Todas');
                 setFunnelFilter('Todos');
-                setValidationFilter('Todos');
+                setValidationFilter('valid_pending');
               }}
               className="btn btn-secondary"
               style={{ padding: '8px 16px', fontSize: '0.82rem' }}

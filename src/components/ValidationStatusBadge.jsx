@@ -2,10 +2,10 @@ import React from 'react';
 import { CheckCircle2, Clock, XCircle, HelpCircle } from 'lucide-react';
 
 const CONFIG = {
-  valid: { icon: CheckCircle2, label: 'Verificado (válido)' },
-  catch_all: { icon: HelpCircle, label: 'Verificado (catch-all)' },
-  invalid: { icon: XCircle, label: 'Verificado (inválido)' },
-  pending: { icon: Clock, label: 'Aguardando Reoon' },
+  valid: { icon: CheckCircle2, label: 'Válido', title: 'E-mail confirmado pelo Reacher local (:8080)' },
+  catch_all: { icon: HelpCircle, label: 'Catch-all', title: 'Servidor aceita todos os e-mails (requer cautela)' },
+  invalid: { icon: XCircle, label: 'Inválido', title: 'E-mail rejeitado no handshake SMTP (descarte recomendado)' },
+  pending: { icon: Clock, label: 'Aguardando Validação', title: 'Aguardando validação gratuita via Reacher Docker (:8080)' },
 };
 
 export default function ValidationStatusBadge({ status }) {
@@ -13,9 +13,9 @@ export default function ValidationStatusBadge({ status }) {
   const Icon = cfg.icon;
   return (
     <span
-      className={`badge badge-${status}`}
+      className={`badge badge-${status || 'pending'}`}
       style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-      title={status === 'pending' ? 'A Reoon ainda não processou este e-mail' : 'A Reoon já processou este e-mail'}
+      title={cfg.title}
     >
       <Icon size={13} />
       {cfg.label}

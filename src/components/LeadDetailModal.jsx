@@ -12,11 +12,9 @@ import {
   CheckCircle2, 
   RotateCcw,
   MessageSquare,
-  Send,
-  Zap,
   CheckCheck
 } from 'lucide-react';
-import { mockDataStore, simulateIncomingLeadReply } from '../lib/mockDataStore';
+import { mockDataStore } from '../lib/mockDataStore';
 import { fetchMessageHistory } from '../lib/evolutionClient';
 import CompanyAvatar from './CompanyAvatar';
 import ValidationStatusBadge from './ValidationStatusBadge';
@@ -116,8 +114,6 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
   const [logs, setLogs] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'person' | 'company' | 'chat' | 'timeline' | 'raw'
-  const [simReplyText, setSimReplyText] = useState('Olá! Tenho interesse, podemos marcar uma demonstração nesta semana?');
-  const [simulating, setSimulating] = useState(false);
 
   const handleClose = () => {
     setCurrentLead(null);
@@ -132,7 +128,8 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
       setLogs(leadLogs);
 
       const msgs = await fetchMessageHistory('Criativa-Core-Outbound', leadToFetch.phone || leadToFetch.id);
-      setMessages(msgs || []);
+      const cleanMsgs = (msgs || []).filter(m => !String(m.id || '').startsWith('msg-init-'));
+      setMessages(cleanMsgs);
 
       const freshLead = await mockDataStore.getMockLeadById(leadToFetch.id);
       if (freshLead) {
@@ -176,21 +173,6 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
   const hasPersonInfo = personEntries.textEntries.length > 0 || personEntries.linkEntries.length > 0;
   const companyEntries = collectInfoEntries(companyInfo, COMPANY_FIELDS, COMPANY_LINKS);
   const hasCompanyInfo = companyEntries.textEntries.length > 0 || companyEntries.linkEntries.length > 0;
-
-  const handleSimulateReply = async (e) => {
-    if (e) e.preventDefault();
-    if (!simReplyText.trim() || simulating) return;
-
-    setSimulating(true);
-    try {
-      await simulateIncomingLeadReply(currentLead.id, simReplyText);
-      setSimReplyText('');
-    } catch (err) {
-      console.error('Erro ao simular resposta do lead:', err);
-    } finally {
-      setSimulating(false);
-    }
-  };
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
@@ -277,7 +259,7 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Higienização Reoon</label>
+                <label className="form-label">Validação de E-mail (Reacher)</label>
                 <ValidationStatusBadge status={currentLead.validation_status} />
               </div>
 
@@ -317,7 +299,7 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
           </div>
         )}
 
-        {/* Tab 2: WhatsApp Chat & Webhook Simulator */}
+        {/* Tab 2: WhatsApp Chat (100% Real Messages) */}
         {activeTab === 'chat' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Messages Stream Container */}
@@ -329,22 +311,32 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
               padding: '16px',
               border: '1px solid rgba(255,255,255,0.06)',
               minHeight: '220px',
-              maxHeight: '300px',
+              maxHeight: '360px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px'
             }}>
               {messages.length === 0 ? (
-                <div style={{ textAlign: 'center', margin: 'auto', color: '#64748b', fontSize: '0.82rem' }}>
-                  Nenhuma mensagem registrada com este contato ainda.
+                <div style={{ textAlign: 'center', margin: 'auto', padding: '36px 16px', color: '#64748b' }}>
+                  <MessageSquare size={36} color="#64748b" style={{ margin: '0 auto 12px auto' }} />
+                  <p style={{ margin: 0, fontWeight: 500, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                    Nenhuma mensagem trocada com este contato ainda.
+                  </p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    As mensagens enviadas via WhatsApp aparecerão aqui em tempo real.
+                  </p>
                 </div>
               ) : (
                 messages.map((m) => {
-                  const isOutbound = m.from_me || m.direction === 'outbound';
+                  const isOutbound = m.from_me || m.direction === 'outbound' || m.sender === 'user' || m.key?.fromMe;
+                  const textContent = m.text || m.message?.conversation || m.message?.extendedTextMessage?.text || '';
+                  const msgDate = m.timestamp ? new Date(m.timestamp) : new Date();
+                  const timeFormatted = isNaN(msgDate.getTime()) ? (m.time || 'Hoje') : msgDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
                   return (
                     <div 
-                      key={m.id}
+                      key={m.id || `msg-${Math.random()}`}
                       style={{
                         maxWidth: '82%',
                         alignSelf: isOutbound ? 'flex-end' : 'flex-start',
@@ -361,9 +353,9 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
                       <div style={{ fontSize: '0.7rem', color: isOutbound ? '#53bdeb' : '#00d4ff', fontWeight: 600, marginBottom: '2px' }}>
                         {m.sender || (isOutbound ? 'Criativa Outbound' : fullName)}
                       </div>
-                      <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{m.text || m.message?.conversation}</p>
+                      <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{textContent}</p>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '0.68rem', color: '#8696a0' }}>
-                        <span>{new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{timeFormatted}</span>
                         {isOutbound && <CheckCheck size={14} color="#53bdeb" />}
                       </div>
                     </div>
@@ -371,45 +363,6 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
                 })
               )}
             </div>
-
-            {/* Inbound Webhook Reply Simulator */}
-            <form onSubmit={handleSimulateReply} style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: '8px',
-              padding: '12px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.76rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                  <Zap size={14} /> Simular Webhook Inbound (Resposta do Lead)
-                </span>
-                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                  Avança funil para 'responded' / 'lead_qualificado' em tempo real
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={simReplyText}
-                  onChange={e => setSimReplyText(e.target.value)}
-                  placeholder="Texto da resposta simulada do lead..."
-                  style={{ fontSize: '0.82rem', flex: 1 }}
-                />
-                <button 
-                  type="submit" 
-                  disabled={simulating || !simReplyText.trim()}
-                  className="btn btn-sm btn-primary"
-                  style={{ background: '#10b981', color: '#0a0a0f', fontWeight: 600, whiteSpace: 'nowrap' }}
-                >
-                  <Send size={14} />
-                  {simulating ? 'Processando...' : 'Receber Webhook'}
-                </button>
-              </div>
-            </form>
           </div>
         )}
 

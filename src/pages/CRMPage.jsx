@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { mockDataStore } from '../lib/mockDataStore';
 import { downloadCrmReportPdf } from '../lib/typstReportGenerator';
 import { 
@@ -27,6 +28,7 @@ import CompanyAvatar from '../components/CompanyAvatar';
 import FunnelStatusBadge from '../components/FunnelStatusBadge';
 
 export default function CRMPage() {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,11 +139,10 @@ export default function CRMPage() {
   const bookedCount = leads.filter(l => l.funnel_status === 'booked').length;
   const inSequenceCount = leads.filter(l => l.funnel_status === 'in_sequence').length;
   const hotCount = leads.filter(l => l.qualification_status === 'hot').length;
-
   const kanbanColumns = [
     { key: 'in_sequence', label: 'Em Sequência', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
-    { key: 'replied', label: 'Responderam (Hot Leads)', color: '#00d4ff', bg: 'rgba(0,212,255,0.08)' },
-    { key: 'booked', label: 'Reunião Agendada', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' }
+    { key: 'replied', label: 'Respondeu 🔥', color: '#00d4ff', bg: 'rgba(0,212,255,0.08)' },
+    { key: 'booked', label: 'Reunião Agendada 🎯', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' }
   ];
 
   if (loading) {
@@ -164,14 +165,14 @@ export default function CRMPage() {
           <button
             onClick={handleExportReport}
             disabled={isExporting}
-            className="btn btn-sm btn-secondary"
-            title="Exportar relatório consolidado em PDF via motor Typst"
+            className="btn btn-secondary"
+            title="Exportar dados do CRM em PDF"
             style={{ borderColor: 'rgba(0, 212, 255, 0.35)', color: '#00d4ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             {isExporting ? (
               <>
-                <span className="spinner-sm" style={{ width: '13px', height: '13px', border: '2px solid rgba(0,212,255,0.3)', borderTopColor: '#00d4ff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
-                <span>Exportando...</span>
+                <span className="spinner" style={{ width: '13px', height: '13px', borderWidth: '2px' }}></span>
+                <span>Gerando PDF...</span>
               </>
             ) : (
               <>
@@ -180,6 +181,7 @@ export default function CRMPage() {
               </>
             )}
           </button>
+
           <button
             onClick={() => setViewMode('kanban')}
             className={`btn btn-sm ${viewMode === 'kanban' ? 'btn-primary' : 'btn-secondary'}`}
@@ -194,48 +196,70 @@ export default function CRMPage() {
           >
             <ListFilter size={15} /> Lista Detalhada
           </button>
+
+          <button
+            onClick={() => navigate('/campaigns')}
+            className="btn btn-primary"
+            style={{ background: '#7c3aed', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Send size={15} />
+            <span>Gerenciar Campanhas</span>
+          </button>
         </div>
       </div>
 
-      {/* Mini KPIs */}
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="glass-card metric-card cyan" style={{ padding: '20px' }}>
+      {/* KPI Stats Bar */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '16px',
+        marginBottom: '24px'
+      }}>
+        <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
+            <div className="metric-label">Respostas Quentes 🔥</div>
             <div className="metric-value">{repliedCount}</div>
-            <div className="metric-label">Respostas Recebidas</div>
           </div>
-          <div className="metric-icon"><Flame size={22} /></div>
+          <div style={{ padding: '10px', background: 'rgba(0,212,255,0.1)', borderRadius: '10px', color: '#00d4ff' }}>
+            <MessageSquare size={22} />
+          </div>
         </div>
 
-        <div className="glass-card metric-card violet" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
+            <div className="metric-label">Reuniões Agendadas 🎯</div>
             <div className="metric-value">{bookedCount}</div>
-            <div className="metric-label">Reuniões Agendadas</div>
           </div>
-          <div className="metric-icon"><Calendar size={22} /></div>
+          <div style={{ padding: '10px', background: 'rgba(124,58,237,0.1)', borderRadius: '10px', color: '#7c3aed' }}>
+            <Calendar size={22} />
+          </div>
         </div>
 
-        <div className="glass-card metric-card amber" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
+            <div className="metric-label">Em Sequência Ativa</div>
             <div className="metric-value">{inSequenceCount}</div>
-            <div className="metric-label">Em Cadência Ativa</div>
           </div>
-          <div className="metric-icon"><TrendingUp size={22} /></div>
+          <div style={{ padding: '10px', background: 'rgba(245,158,11,0.1)', borderRadius: '10px', color: '#f59e0b' }}>
+            <Send size={22} />
+          </div>
         </div>
 
-        <div className="glass-card metric-card emerald" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
+            <div className="metric-label">Leads Hot / Qualificados</div>
             <div className="metric-value">{hotCount}</div>
-            <div className="metric-label">Leads Super Quentes</div>
           </div>
-          <div className="metric-icon"><Sparkles size={22} /></div>
+          <div style={{ padding: '10px', background: 'rgba(10,185,129,0.1)', borderRadius: '10px', color: '#10b981' }}>
+            <Sparkles size={22} />
+          </div>
         </div>
       </div>
 
-      {/* Filters Bar */}
-      <div className="filters-bar glass-card" style={{ padding: '16px', marginBottom: '24px' }}>
-        <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
-          <Search className="search-icon" size={18} />
+      {/* Control Bar: View Toggle & Filters */}
+      <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="search-input-wrapper" style={{ flex: 1, minWidth: '240px' }}>
+          <Search className="search-icon" size={16} />
           <input
             type="text"
             placeholder="Buscar por nome, empresa, e-mail ou CNPJ..."
@@ -251,11 +275,11 @@ export default function CRMPage() {
             onChange={e => setStatusFilter(e.target.value)}
             style={{ minWidth: '170px' }}
           >
-            <option value="Todos">Todos os Status</option>
-            <option value="replied">Responderam</option>
-            <option value="booked">Agendados</option>
+            <option value="Todos">Todo o Funil</option>
+            <option value="scraped">Coletado</option>
             <option value="in_sequence">Em Sequência</option>
-            <option value="scraped">Coletados</option>
+            <option value="replied">Respondeu 🔥</option>
+            <option value="booked">Reunião Agendada 🎯</option>
           </select>
 
           <select
