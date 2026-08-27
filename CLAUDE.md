@@ -38,8 +38,16 @@ Sempre que este arquivo (`CLAUDE.md`) for criado ou atualizado durante uma taref
 * **Colaborador:** **Hugo** (QA Lead — Testes Playwright E2E, Testes de Regressão e Automação de Carga).
 
 ## Sistema de Governança de RH (Liderado pela Renata)
-- **Linha de Corte: 8.0/10**.
-- **Regra dos 3 Strikes:** Se um funcionário registrar desempenho abaixo de 8.0 por 3 avaliações, o RH da Renata executa o desligamento sumário e contrata um substituto de padrão internacional.
+- **Linha de Corte Individual: 8.0/10**.
+- **Regra dos 3 Strikes e Desligamento (100% Individual):** 
+  - A aplicação de Strikes e eventuais demissões é realizada **estritamente sobre o desempenho individual de cada colaborador**, e nunca sobre a média do setor.
+  - Se um colaborador registrar nota individual abaixo de 8.0 por 3 avaliações consecutivas, o RH da Renata executa o desligamento e a substituição.
+- **Diagnóstico Setorial & Papel de Mentoria do Alan (CTO):**
+  - As notas consolidadas de cada Setor/Squad são repassadas periodicamente para o **Alan (CTO)** como inteligência de gestão.
+  - Quando um setor estiver abaixo da linha de corte ou enfrentando gargalos, o Alan atuará estrategicamente para:
+    1. Motivar e acolher a equipe, entendendo dificuldades contextuais ou complexidades da demanda.
+    2. Realizar treinamentos técnicos direcionados (L&D).
+    3. Reexplicar a arquitetura e os algoritmos sob uma ótica mais clara e "mastigada".
 - **Regra Obrigatória de Uso de Skills (Diretriz do CEO):** Todos os colaboradores e coordenadores são OBRIGADOS a consultar e aplicar as skills do projeto (`.agents/skills/`) em suas especialidades antes de qualquer entrega:
   - 🎨 **UX & Frontend (Elena e Leo):** Ativação obrigatória da skill `ux-ui-design-system` (10 Heurísticas de Nielsen, Padrão Dark Glassmorphism, tipografia Inter).
   - ⚙️ **Backend & Plataforma (Victor e Rodrigo):** Ativação obrigatória da skill `security-owasp` (RLS, isolamento de chaves, blindagem de endpoints).
@@ -51,7 +59,7 @@ Sempre que este arquivo (`CLAUDE.md`) for criado ou atualizado durante uma taref
   1. **Fidelidade ao Algoritmo (0-3 pts):** O código reflete com exatidão o que o Lucas especificou?
   2. **Qualidade Técnica & Build (0-3 pts):** Passa nos testes sem quebras, sem lints e com arquitetura limpa?
   3. **Segurança, UX & Uso de Skills (0-2 pts):** Respeita o design de Elena, a segurança de Sofia e as skills oficiais?
-  4. **Proatividade & Evolução (0-2 pts):** Busca novas soluções e skills sem esperar ordens óbvias?
+  4. **Proatividade, SLA & Eficiência de Tokens (0-2 pts):** Busca novas soluções e skills sem esperar ordens óbvias?
 
 ## Contexto do produto
 

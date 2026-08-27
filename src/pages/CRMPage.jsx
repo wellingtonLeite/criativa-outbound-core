@@ -315,8 +315,21 @@ export default function CRMPage() {
                 {/* Column Leads List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {colLeads.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 10px', color: '#64748b', fontSize: '0.85rem' }}>
-                      Nenhum lead nesta etapa
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '36px 14px',
+                      color: '#64748b',
+                      fontSize: '0.82rem',
+                      border: '1px dashed rgba(255, 255, 255, 0.08)',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.01)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 500 }}>Nenhum lead neste estágio</span>
                     </div>
                   ) : (
                     colLeads.map(lead => (
@@ -436,10 +449,18 @@ export default function CRMPage() {
       ) : (
         /* Table View */
         filteredLeads.length === 0 ? (
-          <div className="empty-state glass-card">
-            <Users size={48} className="empty-state-icon" />
-            <h3>Nenhum lead encontrado no funil</h3>
-            <p>Ajuste os filtros de busca para ver resultados.</p>
+          <div className="empty-state glass-card" style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(0, 212, 255, 0.1)', color: '#00d4ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={26} />
+            </div>
+            <div>
+              <h3 style={{ color: '#e2e8f0', fontSize: '1.05rem', fontWeight: 600, marginBottom: '4px' }}>
+                {leads.length === 0 ? 'Nenhum lead no pipeline no momento' : 'Nenhum lead encontrado no funil'}
+              </h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.84rem', margin: 0, maxWidth: '440px', lineHeight: 1.4 }}>
+                {leads.length === 0 ? 'Sua base de CRM está limpa e pronta para novas prospecções. Inicie a mineração de decisores para alimentar o funil!' : 'Ajuste os filtros de busca para ver resultados.'}
+              </p>
+            </div>
           </div>
         ) : (
           <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>

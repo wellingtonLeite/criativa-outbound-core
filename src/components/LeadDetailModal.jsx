@@ -119,6 +119,11 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
   const [simReplyText, setSimReplyText] = useState('Olá! Tenho interesse, podemos marcar uma demonstração nesta semana?');
   const [simulating, setSimulating] = useState(false);
 
+  const handleClose = () => {
+    setCurrentLead(null);
+    if (onClose) onClose();
+  };
+
   const reloadData = async (leadToFetch = currentLead) => {
     if (!leadToFetch) return;
     try {
@@ -139,8 +144,8 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
   };
 
   useEffect(() => {
-    if (!initialLead) return;
     setCurrentLead(initialLead);
+    if (!initialLead) return;
     reloadData(initialLead);
 
     const unsubscribe = mockDataStore.subscribe(() => {
@@ -153,13 +158,15 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
   // Keyboard close on Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && currentLead) onClose();
+      if (e.key === 'Escape') {
+        handleClose();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentLead, onClose]);
+  }, [onClose]);
 
-  if (!currentLead) return null;
+  if (!initialLead || !currentLead) return null;
 
   const companyInfo = currentLead.company_info || {};
   const personInfo = currentLead.person_info || {};
@@ -186,7 +193,7 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleClose}>
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()} 
@@ -205,7 +212,7 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            onClick={handleClose} 
             className="btn-icon" 
             style={{ border: 'none', background: 'transparent' }}
             title="Fechar (Esc)"
@@ -480,7 +487,7 @@ export default function LeadDetailModal({ lead: initialLead, onClose }) {
 
         {/* Modal Footer */}
         <div className="modal-footer">
-          <button onClick={onClose} className="btn btn-secondary">
+          <button onClick={handleClose} className="btn btn-secondary">
             Fechar
           </button>
         </div>

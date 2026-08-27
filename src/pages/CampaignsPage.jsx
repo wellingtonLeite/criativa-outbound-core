@@ -108,10 +108,26 @@ export default function CampaignsPage() {
       </div>
 
       {campaigns.length === 0 ? (
-        <div className="empty-state glass-card">
-          <Megaphone size={48} className="empty-state-icon" />
-          <h3>Nenhuma campanha criada</h3>
-          <p>Crie sua primeira campanha para iniciar o disparo e mineração.</p>
+        <div className="empty-state glass-card" style={{ padding: '56px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(0, 212, 255, 0.1)', color: '#00d4ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Megaphone size={28} />
+          </div>
+          <div>
+            <h3 style={{ color: '#e2e8f0', fontSize: '1.15rem', fontWeight: 600, marginBottom: '6px' }}>
+              Nenhuma campanha criada ainda
+            </h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0, maxWidth: '460px', lineHeight: 1.5 }}>
+              Crie sua primeira campanha para orquestrar disparos automatizados e fluxos de prospecção via Email e WhatsApp.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn btn-primary"
+            style={{ background: '#00d4ff', color: '#0a0a0f', fontWeight: 600, padding: '10px 22px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={16} />
+            <span>+ Criar Primeira Campanha</span>
+          </button>
         </div>
       ) : (
         <div className="campaigns-grid">

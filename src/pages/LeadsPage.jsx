@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { mockDataStore } from '../lib/mockDataStore';
 import { downloadCrmReportPdf } from '../lib/typstReportGenerator';
 import LeadDetailModal from '../components/LeadDetailModal';
-import MiningModal from '../components/MiningModal';
 import WhatsAppModal from '../components/WhatsAppModal';
 import WhatsAppChatDrawer from '../components/WhatsAppChatDrawer';
 import CompanyAvatar from '../components/CompanyAvatar';
@@ -17,14 +17,16 @@ import {
   Building2, 
   MessageSquare, 
   Send, 
-  CheckSquare, 
-  Square,
-  Bot,
-  FileDown,
-  CheckCircle2
+  FileDown, 
+  CheckCircle2,
+  ShieldCheck,
+  Clock,
+  XCircle,
+  ArrowRight
 } from 'lucide-react';
 
 export default function LeadsPage() {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,25 +34,20 @@ export default function LeadsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Modals state
-  const [isMiningModalOpen, setIsMiningModalOpen] = useState(false);
+  // Modals & Drawers state
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [whatsAppTargetLead, setWhatsAppTargetLead] = useState(null);
-
-  // WhatsApp Single Chat Drawer state
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
   const [chatDrawerTargetLead, setChatDrawerTargetLead] = useState(null);
 
   // Selection state for bulk operations
   const [selectedLeadIds, setSelectedLeadIds] = useState(new Set());
 
+  // Filters State
   const [searchText, setSearchText] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('Todas');
   const [funnelFilter, setFunnelFilter] = useState('Todos');
   const [validationFilter, setValidationFilter] = useState('Todos');
-
-  const [revalidating, setRevalidating] = useState(false);
-  const [reoonProgress, setReoonProgress] = useState(null);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -106,36 +103,15 @@ export default function LeadsPage() {
     return () => unsubscribe();
   }, []);
 
-  const pendingLeads = useMemo(() => leads.filter(l => l.validation_status === 'pending'), [leads]);
-
-  const handleRevalidateAllPending = async () => {
-    if (pendingLeads.length === 0) return;
-    setRevalidating(true);
-    setReoonProgress({ status: 'running', checked: 0, total: pendingLeads.length, progress: 20 });
-
-    try {
-      // Simulate stepped verification feedback
-      await new Promise(r => setTimeout(r, 400));
-      setReoonProgress({ status: 'running', checked: Math.floor(pendingLeads.length / 2), total: pendingLeads.length, progress: 60 });
-      await new Promise(r => setTimeout(r, 400));
-      setReoonProgress({ status: 'completed', checked: pendingLeads.length, total: pendingLeads.length, progress: 100 });
-
-      for (const lead of pendingLeads) {
-        await mockDataStore.updateLead(lead.id, {
-          validation_status: 'valid',
-          funnel_status: lead.funnel_status === 'scraped' ? 'in_sequence' : lead.funnel_status
-        });
-      }
-
-      const updated = mockDataStore.getLeadsSync();
-      setLeads(updated);
-    } catch (error) {
-      console.error('Erro ao revalidar leads pendentes:', error);
-    } finally {
-      setRevalidating(false);
-      setTimeout(() => setReoonProgress(null), 1500);
-    }
-  };
+  // Base Stats Calculations
+  const stats = useMemo(() => {
+    const total = leads.length;
+    const valid = leads.filter(l => l.validation_status === 'valid').length;
+    const pending = leads.filter(l => l.validation_status === 'pending' || !l.validation_status).length;
+    const invalid = leads.filter(l => l.validation_status === 'invalid').length;
+    const catchAll = leads.filter(l => l.validation_status === 'catch_all').length;
+    return { total, valid, pending, invalid, catchAll };
+  }, [leads]);
 
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
@@ -193,7 +169,7 @@ export default function LeadsPage() {
   if (loading) {
     return (
       <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <div className="spinner"></div>
+        <div className="spinner" />
       </div>
     );
   }
@@ -201,13 +177,16 @@ export default function LeadsPage() {
   const isAllSelected = filteredLeads.length > 0 && selectedLeadIds.size === filteredLeads.length;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in dashboard-container">
+      {/* 1. Header Executivo */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Base de Leads B2B</h1>
-          <p className="page-subtitle">Contatos e empresas mineradas para prospecção ativa ({leads.length} leads cadastrados)</p>
+          <p className="page-subtitle">
+            Contatos e empresas mineradas para prospecção ativa ({leads.length} contatos cadastrados)
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={handleExportReport}
             disabled={isExporting}
@@ -217,7 +196,7 @@ export default function LeadsPage() {
           >
             {isExporting ? (
               <>
-                <span className="spinner-sm" style={{ width: '13px', height: '13px', border: '2px solid rgba(0,212,255,0.3)', borderTopColor: '#00d4ff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                <span className="spinner" style={{ width: '13px', height: '13px', borderWidth: '2px' }} />
                 <span>Exportando...</span>
               </>
             ) : (
@@ -228,26 +207,80 @@ export default function LeadsPage() {
             )}
           </button>
 
-          {pendingLeads.length > 0 && (
-            <button
-              onClick={handleRevalidateAllPending}
-              disabled={revalidating}
-              className="btn btn-secondary"
-            >
-              <RefreshCw size={16} className={revalidating ? 'animate-spin' : ''} />
-              {revalidating ? 'Higienizando...' : `Validar Pendentes (${pendingLeads.length})`}
-            </button>
-          )}
-
-          {/* Crawlee Mining Trigger Button */}
+          {/* Botão Primário: Minerar Novos Leads (Sem Jargões) */}
           <button
-            onClick={() => setIsMiningModalOpen(true)}
+            onClick={() => navigate('/prospector')}
             className="btn btn-primary"
-            style={{ background: '#00d4ff', color: '#0a0a0f', fontWeight: 600 }}
-            title="Abrir gerador de mineração em massa com Crawlee e DuckDB"
+            style={{ background: '#00d4ff', color: '#0a0a0f', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            title="Ir para o módulo de Mineração de Decisores B2B"
           >
-            <Sparkles size={16} /> Nova Mineração (Crawlee)
+            <Sparkles size={16} />
+            <span>+ Minerar Novos Leads</span>
           </button>
+        </div>
+      </div>
+
+      {/* 2. Barra de Estatísticas da Base */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '14px',
+        marginBottom: '20px'
+      }}>
+        {/* Total */}
+        <div className="glass-card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total de Leads</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#fff' }}>{stats.total}</div>
+          </div>
+          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}>
+            <Users size={18} />
+          </div>
+        </div>
+
+        {/* Válidos */}
+        <div className="glass-card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '3px solid #10b981' }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>🟢 Válidos Confirmados</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#10b981' }}>{stats.valid}</div>
+          </div>
+          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+            <CheckCircle2 size={18} />
+          </div>
+        </div>
+
+        {/* Pendentes */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '14px 18px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            borderLeft: '3px solid #f59e0b',
+            cursor: stats.pending > 0 ? 'pointer' : 'default'
+          }}
+          onClick={stats.pending > 0 ? () => navigate('/diagnostico') : undefined}
+          title={stats.pending > 0 ? 'Clique para ir para a tela de Higienização (Passo 2)' : undefined}
+        >
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>🟡 Pendentes de Validação</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#f59e0b' }}>{stats.pending}</div>
+          </div>
+          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
+            <Clock size={18} />
+          </div>
+        </div>
+
+        {/* Inválidos */}
+        <div className="glass-card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '3px solid #f43f5e' }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>🔴 Inválidos Descartados</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#f43f5e' }}>{stats.invalid}</div>
+          </div>
+          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f43f5e' }}>
+            <XCircle size={18} />
+          </div>
         </div>
       </div>
 
@@ -285,71 +318,99 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Reoon verification status indicator */}
-      {reoonProgress && (
-        <div className="glass-card" style={{
-          display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', marginBottom: '20px',
-          border: '1px solid rgba(16,185,129,0.35)', background: 'rgba(16,185,129,0.07)'
+      {/* 3. Barra de Filtros Proporcional e Elegante */}
+      <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '20px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 1.6fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr)',
+          gap: '14px',
+          alignItems: 'center'
         }}>
-          <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px', flexShrink: 0 }}></div>
-          <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>
-              Higienizando e-mails na Reoon — {reoonProgress.total} contato{reoonProgress.total > 1 ? 's' : ''}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              {reoonProgress.status === 'running' && `Processando lista... (${reoonProgress.progress}%)`}
-              {reoonProgress.status === 'completed' && 'Concluído com sucesso — todos os contatos válidos foram atualizados!'}
-            </div>
+          {/* Busca por texto */}
+          <div className="search-input-wrapper" style={{ minWidth: '0' }}>
+            <Search className="search-icon" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por nome, email, empresa ou CNPJ..."
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              className="form-input"
+            />
           </div>
-        </div>
-      )}
 
-      {/* Filters Bar */}
-      <div className="filters-bar glass-card" style={{ padding: '16px' }}>
-        <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
-          <Search className="search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Buscar por nome, email, empresa ou CNPJ..."
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-            className="form-input"
-          />
-        </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <select className="form-select" value={campaignFilter} onChange={e => setCampaignFilter(e.target.value)} style={{ minWidth: '180px' }}>
-            <option value="Todas">Todas as Campanhas</option>
-            {campaigns.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-          <select className="form-select" value={funnelFilter} onChange={e => setFunnelFilter(e.target.value)} style={{ minWidth: '160px' }}>
-            <option value="Todos">Todo o Funil</option>
-            <option value="scraped">Coletado</option>
-            <option value="in_sequence">Em Sequência</option>
-            <option value="replied">Respondeu</option>
-            <option value="booked">Agendado</option>
-            <option value="bounced">Retornou (Bounce)</option>
-            <option value="unsubscribed">Descadastrado</option>
-          </select>
-          <select className="form-select" value={validationFilter} onChange={e => setValidationFilter(e.target.value)} style={{ minWidth: '160px' }}>
-            <option value="Todos">Toda Validação</option>
-            <option value="valid">Válido</option>
-            <option value="catch_all">Catch-all</option>
-            <option value="pending">Pendente</option>
-            <option value="invalid">Inválido</option>
-          </select>
+          {/* Filtro de Campanha */}
+          <div>
+            <select className="form-select" value={campaignFilter} onChange={e => setCampaignFilter(e.target.value)}>
+              <option value="Todas">Todas as Campanhas</option>
+              {campaigns.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
+          </div>
+
+          {/* Filtro de Funil */}
+          <div>
+            <select className="form-select" value={funnelFilter} onChange={e => setFunnelFilter(e.target.value)}>
+              <option value="Todos">Todo o Funil</option>
+              <option value="scraped">Coletado</option>
+              <option value="in_sequence">Em Sequência</option>
+              <option value="replied">Respondeu</option>
+              <option value="booked">Agendado</option>
+              <option value="bounced">Retornou (Bounce)</option>
+              <option value="unsubscribed">Descadastrado</option>
+            </select>
+          </div>
+
+          {/* Filtro de Validação */}
+          <div>
+            <select className="form-select" value={validationFilter} onChange={e => setValidationFilter(e.target.value)}>
+              <option value="Todos">Toda Validação</option>
+              <option value="valid">Válido</option>
+              <option value="catch_all">Catch-all</option>
+              <option value="pending">Pendente</option>
+              <option value="invalid">Inválido</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Data Table */}
+      {/* 4. Tabela de Leads ou Empty State */}
       {filteredLeads.length === 0 ? (
-        <div className="empty-state glass-card">
-          <Users size={48} className="empty-state-icon" />
-          <h3>Nenhum lead encontrado</h3>
-          <p>
-            {leads.length === 0
-              ? 'Nenhum contato encontrado no repositório. Use o botão "Nova Mineração (Crawlee)" para gerar contatos.'
-              : 'Ajuste os filtros de busca para visualizar os registros.'}
-          </p>
+        <div className="empty-state glass-card" style={{ padding: '56px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(0, 212, 255, 0.1)', color: '#00d4ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Users size={28} />
+          </div>
+          <div>
+            <h3 style={{ color: '#e2e8f0', fontSize: '1.15rem', fontWeight: 600, marginBottom: '6px' }}>
+              {leads.length === 0 ? 'Nenhum lead na base no momento' : 'Nenhum lead encontrado com os filtros'}
+            </h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0, maxWidth: '480px', lineHeight: 1.5 }}>
+              {leads.length === 0
+                ? 'Sua base de contatos está pronta para receber novas prospecções. Inicie a mineração de decisores B2B agora mesmo!'
+                : 'Ajuste os filtros de busca para visualizar os registros.'}
+            </p>
+          </div>
+          {leads.length === 0 ? (
+            <button
+              onClick={() => navigate('/prospector')}
+              className="btn btn-primary"
+              style={{ background: '#00d4ff', color: '#0a0a0f', fontWeight: 700, padding: '10px 24px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Sparkles size={16} />
+              <span>+ Minerar Novos Leads</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setSearchText('');
+                setCampaignFilter('Todas');
+                setFunnelFilter('Todos');
+                setValidationFilter('Todos');
+              }}
+              className="btn btn-secondary"
+              style={{ padding: '8px 16px', fontSize: '0.82rem' }}
+            >
+              Limpar Filtros
+            </button>
+          )}
         </div>
       ) : (
         <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -458,15 +519,6 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
-
-      {/* Crawlee Mining Modal */}
-      <MiningModal
-        isOpen={isMiningModalOpen}
-        onClose={() => setIsMiningModalOpen(false)}
-        onMiningComplete={() => {
-          setLeads(mockDataStore.getLeadsSync());
-        }}
-      />
 
       {/* Evolution WhatsApp Chat Drawer for Individual Lead */}
       <WhatsAppChatDrawer

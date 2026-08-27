@@ -1,368 +1,449 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  List, 
-  Plus, 
-  X, 
   Sparkles, 
   Database, 
   Search, 
   CheckCircle2, 
   Building2, 
-  ArrowRight,
-  RefreshCw,
-  Globe
+  ArrowRight, 
+  ShieldCheck,
+  UserCheck,
+  MapPin,
+  Briefcase,
+  Layers,
+  Phone,
+  Mail,
+  Zap
 } from 'lucide-react';
-import { callApolloProxy } from '../lib/apolloClient';
 import { triggerMiningJob } from '../lib/miningClient';
-import { mockDataStore } from '../lib/mockDataStore';
-import MiningModal from '../components/MiningModal';
 import CompanyAvatar from '../components/CompanyAvatar';
 
+const SUGGESTED_ROLES = [
+  'Diretor',
+  'CEO',
+  'Gerente Comercial',
+  'Head de Vendas',
+  'Diretor de Operações',
+  'CTO'
+];
+
+const SECTORS = [
+  { value: 'Tecnologia & Software', label: 'Tecnologia & Software' },
+  { value: 'Logística & Transporte', label: 'Logística & Transporte' },
+  { value: 'Indústria & Manufatura', label: 'Indústria & Manufatura' },
+  { value: 'Varejo & E-commerce', label: 'Varejo & E-commerce' },
+  { value: 'Saúde & Farma', label: 'Saúde & Farma' },
+  { value: 'Serviços Financeiros', label: 'Serviços Financeiros' }
+];
+
+const LOCATIONS = [
+  { value: 'SP', label: 'São Paulo (SP)' },
+  { value: 'RJ', label: 'Rio de Janeiro (RJ)' },
+  { value: 'MG', label: 'Minas Gerais (MG)' },
+  { value: 'SUL', label: 'Sul (PR/SC/RS)' },
+  { value: 'BR', label: 'Brasil Todo' }
+];
+
+const QUANTITY_OPTIONS = [
+  { value: 10, label: '10 leads' },
+  { value: 25, label: '25 leads' },
+  { value: 50, label: '50 leads' },
+  { value: 100, label: '100 leads' }
+];
+
 export default function ProspectorPage() {
-  const [apolloLists, setApolloLists] = useState([]);
-  const [loadingLists, setLoadingLists] = useState(true);
-  const [errorLists, setErrorLists] = useState('');
+  const navigate = useNavigate();
 
-  const [showListModal, setShowListModal] = useState(false);
-  const [newListName, setNewListName] = useState('');
-  const [creatingList, setCreatingList] = useState(false);
-
-  // Crawlee Mining Section State
-  const [segment, setSegment] = useState('Tecnologia');
+  // Search & Filter Form State
+  const [role, setRole] = useState('Diretor');
+  const [segment, setSegment] = useState('Tecnologia & Software');
   const [location, setLocation] = useState('SP');
-  const [quantity, setQuantity] = useState(10);
+  const [quantity, setQuantity] = useState(25);
+
+  // Execution & Results State
   const [isMining, setIsMining] = useState(false);
   const [miningFeedback, setMiningFeedback] = useState(null);
-  const [isMiningModalOpen, setIsMiningModalOpen] = useState(false);
   const [minedResults, setMinedResults] = useState([]);
 
-  useEffect(() => {
-    fetchApolloLists();
-  }, []);
-
-  const fetchApolloLists = async () => {
-    setLoadingLists(true);
-    setErrorLists('');
-    try {
-      const data = await callApolloProxy('get_lists');
-      setApolloLists(Array.isArray(data) ? data : (data.contact_lists || data.labels || data.lists || []));
-    } catch (error) {
-      console.error('Erro ao buscar listas:', error);
-      setErrorLists(error.message);
-    } finally {
-      setLoadingLists(false);
-    }
+  const handleSelectRoleTag = (suggestedRole) => {
+    setRole(suggestedRole);
   };
 
-  const handleCreateList = async (e) => {
-    e.preventDefault();
-    if (!newListName.trim()) return;
-    setCreatingList(true);
-    try {
-      await callApolloProxy('create_list', { name: newListName.trim(), modality: 'contacts' });
-      setNewListName('');
-      setShowListModal(false);
-      await fetchApolloLists();
-    } catch (error) {
-      console.error('Erro ao criar lista:', error);
-      alert(error.message);
-    } finally {
-      setCreatingList(false);
-    }
-  };
-
-  const handleInlineMining = async (e) => {
+  const handleStartMining = async (e) => {
     if (e) e.preventDefault();
     if (isMining) return;
 
     setIsMining(true);
-    setMiningFeedback({ stage: 'Iniciando clusters headless Crawlee & DuckDB...', progress: 30 });
+    setMiningFeedback({ stage: 'Mapeando diretórios corporativos e bases de dados B2B...', progress: 30 });
 
     try {
-      await new Promise(r => setTimeout(r, 200));
-      setMiningFeedback({ stage: `Raspando diretórios e CNPJs em ${location} (${segment})...`, progress: 65 });
+      await new Promise(r => setTimeout(r, 250));
+      setMiningFeedback({ stage: `Consultando decisores (${role || 'Decisores'}) no setor ${segment} (${location})...`, progress: 65 });
 
-      await new Promise(r => setTimeout(r, 200));
-      setMiningFeedback({ stage: 'Deduplicando registros no DuckDB...', progress: 90 });
+      await new Promise(r => setTimeout(r, 250));
+      setMiningFeedback({ stage: 'Enriquecendo dados cadastrais e verificando CNPJs...', progress: 90 });
 
       const res = await triggerMiningJob({
-        segment: segment || 'Tecnologia',
+        segment: segment || 'Tecnologia & Software',
         location: location || 'SP',
-        quantity: Math.max(1, Number(quantity) || 10)
+        quantity: Math.max(1, Number(quantity) || 10),
+        role: role.trim() || 'Diretor'
       });
 
       if (res.status === 'SUCCESS') {
-        setMinedResults(res.data || []);
+        const discovered = res.data || [];
+        setMinedResults(discovered);
         setMiningFeedback({
           success: true,
-          stage: `✓ ${res.leadsDiscovered} leads minerados e adicionados à base!`,
-          count: res.leadsDiscovered
+          stage: `✓ ${discovered.length} decisores qualificados encontrados e salvos na sua base!`,
+          count: discovered.length
         });
+      } else {
+        throw new Error(res.error || 'Não foi possível completar a mineração.');
       }
     } catch (err) {
       console.error('Erro na mineração:', err);
-      setMiningFeedback({ error: true, stage: err.message });
+      setMiningFeedback({ error: true, stage: err.message || 'Erro ao minerar leads.' });
     } finally {
       setIsMining(false);
     }
   };
 
   return (
-    <div className="animate-fade-in">
-      {/* Page Header */}
+    <div className="animate-fade-in dashboard-container">
+      {/* 1. Header Executivo */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Prospecção & Mineração B2B</h1>
-          <p className="page-subtitle">Motores integrados de mineração de dados em massa (Crawlee, DuckDB) e listas corporativas</p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
-            onClick={() => setIsMiningModalOpen(true)} 
-            className="btn btn-primary"
-            style={{ background: '#00d4ff', color: '#0a0a0f', fontWeight: 600 }}
-          >
-            <Sparkles size={18} /> Minerar com Crawlee
-          </button>
-          <button onClick={() => setShowListModal(true)} className="btn btn-secondary">
-            <Plus size={18} /> Nova Lista no Apollo
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span className="badge" style={{ background: 'rgba(0, 212, 255, 0.12)', color: '#00d4ff', fontWeight: 600, fontSize: '0.75rem' }}>
+              PASSO 1 DE 3
+            </span>
+            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>• Esteira Comercial CORE</span>
+          </div>
+          <h1 className="page-title">1. Mineração de Decisores B2B</h1>
+          <p className="page-subtitle">
+            Descubra contatos qualificados por cargo, setor e localização para alimentar sua esteira comercial.
+          </p>
         </div>
       </div>
 
-      {/* Primary Section: Crawlee & DuckDB Active Mining Engine */}
-      <div className="glass-card" style={{ padding: '24px', marginBottom: '28px', borderTop: '3px solid #00d4ff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+      {/* 2. Painel de Busca Unificado (Simples, Claro, Sem Jargões Técnicos) */}
+      <div className="glass-card" style={{ padding: '28px', marginBottom: '28px', borderTop: '3px solid #00d4ff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
           <div style={{
-            width: '36px', height: '36px', borderRadius: '8px',
+            width: '40px', height: '40px', borderRadius: '10px',
             background: 'rgba(0, 212, 255, 0.12)', color: '#00d4ff',
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            <Database size={20} />
+            <Sparkles size={22} />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#fff' }}>
-              Mineração de Dados B2B em Massa (Crawlee & DuckDB)
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#fff', margin: 0 }}>
+              Defina o Perfil de Cliente Ideal (ICP)
             </h2>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-              Raspagem automatizada no mercado brasileiro com validação instantânea de CNPJ e decisores
+            <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '2px 0 0 0' }}>
+              Selecione o cargo do tomador de decisão, o segmento de mercado e a região desejada para iniciar a busca.
             </p>
           </div>
         </div>
 
-        {/* Mining Form */}
-        <form onSubmit={handleInlineMining} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', alignItems: 'flex-end' }}>
+        <form onSubmit={handleStartMining}>
+          {/* Grid de 4 Campos Principais */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px', alignItems: 'flex-start' }}>
+            
+            {/* Campo 1: Cargo ou Função com Tags Sugeridas */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Segmento / Indústria</label>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Briefcase size={14} color="#00d4ff" />
+                <span>Cargo ou Função do Decisor</span>
+              </label>
               <input
                 type="text"
-                name="segment"
-                placeholder="Digite o segmento (ex: Logística, Saúde, Tecnologia)..."
-                value={segment}
-                onChange={e => setSegment(e.target.value)}
+                value={role}
+                onChange={e => setRole(e.target.value)}
+                placeholder="Ex: Diretor, CEO, Head de Vendas..."
                 className="form-input"
                 required
               />
+              {/* Tags Sugeridas */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                {SUGGESTED_ROLES.map(tag => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleSelectRoleTag(tag)}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: role === tag ? 600 : 400,
+                      background: role === tag ? 'rgba(0, 212, 255, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                      border: role === tag ? '1px solid rgba(0, 212, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: role === tag ? '#00d4ff' : '#94a3b8',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
             </div>
 
+            {/* Campo 2: Setor / Segmento */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Estado / Região</label>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Building2 size={14} color="#00d4ff" />
+                <span>Setor / Segmento</span>
+              </label>
               <select
-                name="location"
+                className="form-select"
+                value={segment}
+                onChange={e => setSegment(e.target.value)}
+              >
+                {SECTORS.map(sec => (
+                  <option key={sec.value} value={sec.value}>{sec.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Campo 3: Estado / Região */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MapPin size={14} color="#00d4ff" />
+                <span>Estado / Região</span>
+              </label>
+              <select
                 className="form-select"
                 value={location}
                 onChange={e => setLocation(e.target.value)}
               >
-                <option value="SP">São Paulo (SP)</option>
-                <option value="RJ">Rio de Janeiro (RJ)</option>
-                <option value="MG">Minas Gerais (MG)</option>
-                <option value="PR">Paraná (PR)</option>
-                <option value="SC">Santa Catarina (SC)</option>
-                <option value="RS">Rio Grande do Sul (RS)</option>
-                <option value="BA">Bahia (BA)</option>
-                <option value="GO">Goiás (GO)</option>
-                <option value="DF">Distrito Federal (DF)</option>
-                <option value="MT">Mato Grosso (MT)</option>
+                {LOCATIONS.map(loc => (
+                  <option key={loc.value} value={loc.value}>{loc.label}</option>
+                ))}
               </select>
             </div>
 
+            {/* Campo 4: Quantidade de Leads */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Quantidade ({quantity} leads)</label>
-              <input
-                type="number"
-                min="1"
-                max="50"
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Layers size={14} color="#00d4ff" />
+                <span>Volume de Contatos</span>
+              </label>
+              <select
+                className="form-select"
                 value={quantity}
-                onChange={e => setQuantity(e.target.value)}
-                className="form-input"
-              />
+                onChange={e => setQuantity(Number(e.target.value))}
+              >
+                {QUANTITY_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={isMining}
-                className="btn btn-primary"
-                style={{ width: '100%', height: '42px', background: '#00d4ff', color: '#0a0a0f', fontWeight: 600 }}
-              >
-                {isMining ? (
-                  <>
-                    <div className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></div>
-                    Minerando...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={16} /> Minerar Leads
-                  </>
-                )}
-              </button>
-            </div>
+          </div>
+
+          {/* Botão Primário Destacado */}
+          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="submit"
+              disabled={isMining}
+              className="btn btn-primary"
+              style={{
+                height: '46px',
+                padding: '0 28px',
+                background: '#00d4ff',
+                color: '#0a0a0f',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                boxShadow: '0 0 24px rgba(0, 212, 255, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}
+            >
+              {isMining ? (
+                <>
+                  <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+                  <span>Minerando Decisores...</span>
+                </>
+              ) : (
+                <>
+                  <span>🚀 Minerar Leads Agora ({quantity} contatos)</span>
+                </>
+              )}
+            </button>
           </div>
         </form>
 
-        {/* Feedback / Progress Status */}
+        {/* Feedback de Progresso / Sucesso */}
         {miningFeedback && (
           <div className="animate-fade-in" style={{
-            marginTop: '16px',
-            padding: '12px 16px',
+            marginTop: '20px',
+            padding: '14px 18px',
             borderRadius: '8px',
-            background: miningFeedback.error ? 'rgba(244,63,94,0.1)' : 'rgba(0,212,255,0.08)',
-            border: miningFeedback.error ? '1px solid rgba(244,63,94,0.3)' : '1px solid rgba(0,212,255,0.25)',
+            background: miningFeedback.error ? 'rgba(244, 63, 94, 0.1)' : 'rgba(0, 212, 255, 0.08)',
+            border: miningFeedback.error ? '1px solid rgba(244, 63, 94, 0.3)' : '1px solid rgba(0, 212, 255, 0.25)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {miningFeedback.success ? (
-                <CheckCircle2 size={18} color="#10b981" />
+                <CheckCircle2 size={20} color="#10b981" />
               ) : isMining ? (
-                <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
+                <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
               ) : null}
-              <span style={{ fontSize: '0.84rem', color: miningFeedback.success ? '#10b981' : '#e2e8f0' }}>
+              <span style={{ fontSize: '0.88rem', color: miningFeedback.success ? '#10b981' : '#e2e8f0', fontWeight: miningFeedback.success ? 600 : 400 }}>
                 {miningFeedback.stage}
               </span>
             </div>
 
             {miningFeedback.success && (
-              <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', fontWeight: 600 }}>
-                +{miningFeedback.count} Novos Leads no CRM
+              <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600, padding: '6px 12px' }}>
+                +{miningFeedback.count} Novos Leads Adicionados
               </span>
             )}
           </div>
         )}
-
-        {/* Mined Leads Quick Results Preview */}
-        {minedResults.length > 0 && (
-          <div className="animate-fade-in" style={{ marginTop: '20px' }}>
-            <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '10px', textTransform: 'uppercase' }}>
-              Resultados Recém-Minerados ({minedResults.length})
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-              {minedResults.slice(0, 6).map(lead => (
-                <div key={lead.id} className="glass-card" style={{ padding: '14px', background: 'rgba(255,255,255,0.02)' }}>
-                  <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.88rem' }}>{lead.company_name}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-                    {[lead.first_name, lead.last_name].join(' ')} · {lead.person_info?.title || 'Decisor'}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
-                    CNPJ: {lead.cnpj} · {lead.city}/{lead.state}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Secondary Section: Apollo Lists */}
-      <div className="section-card purple-accent" style={{ minHeight: '300px' }}>
-        <h2 className="section-card-title" style={{ marginBottom: '20px' }}>
-          <List size={20} style={{ color: '#7c3aed' }} />
-          Suas Listas no Apollo.io
-        </h2>
-
-        {loadingLists ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '160px' }}>
-            <div className="spinner"></div>
-          </div>
-        ) : errorLists ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#f43f5e', textAlign: 'center' }}>
-            <List size={36} style={{ opacity: 0.8, marginBottom: '12px' }} />
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '6px' }}>Erro ao carregar listas do Apollo</h3>
-            <p style={{ fontSize: '0.85rem', maxWidth: '480px' }}>
-              {errorLists}
-            </p>
-          </div>
-        ) : apolloLists.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '160px', color: '#64748b' }}>
-            <List size={36} style={{ opacity: 0.2, marginBottom: '12px' }} />
-            <p style={{ fontSize: '0.85rem' }}>Você não tem listas no Apollo. Crie uma nova acima!</p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-            {apolloLists.map(list => (
-              <div key={list.id} className="glass-card" style={{ padding: '20px', borderTop: '3px solid #7c3aed' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '6px' }}>
-                  {list.name}
-                </h3>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', color: '#94a3b8', fontSize: '0.82rem' }}>
-                  <span>{list.modality === 'accounts' ? 'Empresas' : 'Contatos'}: <strong style={{ color: '#fff' }}>{list.cached_count || 0}</strong></span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Modal: Nova Lista Apollo */}
-      {showListModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>Criar Nova Lista (Apollo)</h2>
-              <button onClick={() => setShowListModal(false)} className="btn-icon" style={{ border: 'none', background: 'transparent' }}>
-                <X size={20} />
-              </button>
+      {/* 3. Tabela de Leads Minerados Recentes & CTA Sequencial para o Passo 2 */}
+      {minedResults.length > 0 ? (
+        <div className="glass-card animate-fade-in" style={{ padding: '24px', borderTop: '3px solid #10b981' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fff', margin: 0 }}>
+                Leads Recém-Minerados ({minedResults.length})
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '4px 0 0 0' }}>
+                Contatos prontos para a etapa de validação e blindagem de domínio.
+              </p>
             </div>
 
-            <form onSubmit={handleCreateList}>
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label">Nome da Lista</label>
-                <input
-                  type="text"
-                  required
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  className="form-input"
-                  placeholder="Ex: C-Levels SP Tech"
-                  autoFocus
-                />
-                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
-                  Esta lista será criada diretamente na sua conta do Apollo.io.
-                </p>
-              </div>
+            {/* Botão de Ação Clara para o Passo 2 */}
+            <button
+              onClick={() => navigate('/diagnostico')}
+              className="btn btn-primary"
+              style={{
+                background: '#10b981',
+                color: '#0a0a0f',
+                fontWeight: 700,
+                padding: '10px 22px',
+                fontSize: '0.9rem',
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>🧼 Enviar Leads para Higienização (Passo 2)</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
 
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowListModal(false)} className="btn btn-secondary">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={creatingList} className="btn btn-primary" style={{ background: '#7c3aed' }}>
-                  {creatingList ? 'Criando...' : 'Criar Lista'}
-                </button>
-              </div>
-            </form>
+          {/* Tabela de Resultados */}
+          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <table className="data-table">
+              <thead style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <tr>
+                  <th>Nome & Decisor</th>
+                  <th>Cargo</th>
+                  <th>Empresa & CNPJ</th>
+                  <th>Cidade / UF</th>
+                  <th>E-mail Corporativo</th>
+                  <th>WhatsApp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {minedResults.map(lead => (
+                  <tr key={lead.id}>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>
+                        {[lead.first_name, lead.last_name].filter(Boolean).join(' ')}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge" style={{ background: 'rgba(0, 212, 255, 0.1)', color: '#00d4ff' }}>
+                        {lead.person_info?.title || role || 'Decisor'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CompanyAvatar name={lead.company_name} size={22} />
+                        <div>
+                          <div style={{ fontWeight: 500, color: '#e2e8f0' }}>{lead.company_name}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'monospace' }}>{lead.cnpj}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ color: '#94a3b8' }}>
+                        {lead.city ? `${lead.city} - ${lead.state}` : lead.state}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00d4ff' }}>
+                        <Mail size={13} />
+                        <span>{lead.email}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981' }}>
+                        <Phone size={13} />
+                        <span>{lead.phone}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer CTA */}
+          <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => navigate('/diagnostico')}
+              className="btn btn-primary"
+              style={{
+                background: '#10b981',
+                color: '#0a0a0f',
+                fontWeight: 700,
+                padding: '10px 22px',
+                fontSize: '0.9rem',
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>🧼 Enviar Leads para Higienização (Passo 2)</span>
+              <ArrowRight size={16} />
+            </button>
           </div>
         </div>
+      ) : (
+        /* Empty State Informativo */
+        <div className="glass-card" style={{ padding: '36px 24px', textAlign: 'center', border: '1px dashed rgba(255, 255, 255, 0.08)' }}>
+          <div style={{
+            width: '52px', height: '52px', borderRadius: '14px',
+            background: 'rgba(0, 212, 255, 0.06)', color: '#00d4ff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px auto'
+          }}>
+            <Database size={26} />
+          </div>
+          <h3 style={{ fontSize: '1.05rem', color: '#e2e8f0', marginBottom: '6px' }}>
+            Pronto para iniciar uma nova mineração
+          </h3>
+          <p style={{ fontSize: '0.84rem', color: '#64748b', maxWidth: '480px', margin: '0 auto' }}>
+            Configure o perfil de decisão no painel acima e clique em <strong>"Minerar Leads Agora"</strong> para coletar contatos de decisores em tempo real.
+          </p>
+        </div>
       )}
-
-      {/* Complete Mining Modal */}
-      <MiningModal
-        isOpen={isMiningModalOpen}
-        onClose={() => setIsMiningModalOpen(false)}
-        onMiningComplete={(newLeads) => {
-          setMinedResults(newLeads || []);
-        }}
-      />
     </div>
   );
 }
