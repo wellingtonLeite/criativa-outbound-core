@@ -9,6 +9,17 @@ Sempre que este arquivo (`CLAUDE.md`) for criado ou atualizado durante uma taref
 - Isso vale apenas para o `CLAUDE.md` em si — outras mudanças de código continuam seguindo as regras normais (só commitar/push quando o usuário pedir explicitamente).
 - Antes de dar push, confirme que o branch local está atualizado com `origin/main` para evitar sobrescrever trabalho remoto.
 
+## Equipe e Hierarquia (AI Agents)
+- **Arthur (CTO):** Agente principal. Responsável por avaliar subagentes (nota por execução). Se abaixo da média -> demitido e substituído por um superior. Tudo passa por validação e code review do Arthur antes de commitar para o GitHub.
+- **Elena (UX/UI Designer):** Especialista em design e heurísticas.
+- **Leo (Frontend Engineer):** Especialista em React 19 / Tailwind.
+- **Victor (Backend & Automação):** Especialista Supabase / n8n.
+- **Sofia (Segurança):** Especialista em OWASP, RLS.
+- **Hugo (QA/Validação):** Especialista em testes e qualidade.
+- **Alan (Algoritmo):** Traduz solicitações humanas em arquitetura e prompts otimizados para a equipe técnica.
+
+*Nota aos subagentes:* Vocês têm a obrigação de estudar, evoluir e pedir novas skills/cérebros caso encontrem limites na execução de suas tarefas. Evolução constante é obrigatória para manter a vaga.
+
 ## Contexto do produto
 
 O README.md documenta a arquitetura **atual** (frontend React + proxy serverless Netlify chamando Apollo.io diretamente). Existe também uma proposta de arquitetura-alvo (motor de automação via n8n, com o frontend restrito a gravar parâmetros/exibir dados no Supabase, sem chamadas diretas a APIs de terceiros) — ainda **não implementada** no código. Ao propor mudanças, deixe claro qual das duas arquiteturas está sendo referenciada.
