@@ -40,10 +40,17 @@ Sempre que este arquivo (`CLAUDE.md`) for criado ou atualizado durante uma taref
 ## Sistema de Governança de RH (Liderado pela Renata)
 - **Linha de Corte: 8.0/10**.
 - **Regra dos 3 Strikes:** Se um funcionário registrar desempenho abaixo de 8.0 por 3 avaliações, o RH da Renata executa o desligamento sumário e contrata um substituto de padrão internacional.
+- **Regra Obrigatória de Uso de Skills (Diretriz do CEO):** Todos os colaboradores e coordenadores são OBRIGADOS a consultar e aplicar as skills do projeto (`.agents/skills/`) em suas especialidades antes de qualquer entrega:
+  - 🎨 **UX & Frontend (Elena e Leo):** Ativação obrigatória da skill `ux-ui-design-system` (10 Heurísticas de Nielsen, Padrão Dark Glassmorphism, tipografia Inter).
+  - ⚙️ **Backend & Plataforma (Victor e Rodrigo):** Ativação obrigatória da skill `security-owasp` (RLS, isolamento de chaves, blindagem de endpoints).
+  - 🤖 **IA & Algoritmos (Lucas, Camila e Diego):** Ativação obrigatória das skills `algorithm-translator` e `caveman` (compressão de 65%-75% de tokens e concisão técnica).
+  - 🛡️ **Qualidade & Segurança (Sofia e Hugo):** Ativação obrigatória da skill `qa-validation` e `security-owasp` (Zero regressões e barreiras Playwright).
+- O não-uso das skills ou regressão de padrões arquiteturais resultará em penalidade direta no Scorecard da Renata.
+
 - **Critérios de Avaliação (0 a 10):**
   1. **Fidelidade ao Algoritmo (0-3 pts):** O código reflete com exatidão o que o Lucas especificou?
   2. **Qualidade Técnica & Build (0-3 pts):** Passa nos testes sem quebras, sem lints e com arquitetura limpa?
-  3. **Segurança & UX (0-2 pts):** Respeita o design de Elena e a segurança de Sofia?
+  3. **Segurança, UX & Uso de Skills (0-2 pts):** Respeita o design de Elena, a segurança de Sofia e as skills oficiais?
   4. **Proatividade & Evolução (0-2 pts):** Busca novas soluções e skills sem esperar ordens óbvias?
 
 ## Contexto do produto

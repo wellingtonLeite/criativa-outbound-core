@@ -2,9 +2,13 @@ import React from 'react';
 
 const LABELS = {
   sent: 'Enviado',
+  delivered: 'Entregue',
   opened: 'Aberto',
-  replied: 'Respondeu',
+  replied: 'Respondeu 🔥',
+  booked: 'Agendado 📅',
   bounced: 'Retornou (Bounce)',
+  cleaned: 'Higienizado 🧼',
+  scraped: 'Minerado 🚀',
 };
 
 export default function EventTypeBadge({ type }) {

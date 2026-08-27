@@ -22,7 +22,7 @@ import {
   FileDown
 } from 'lucide-react';
 import LeadDetailModal from '../components/LeadDetailModal';
-import WhatsAppModal from '../components/WhatsAppModal';
+import WhatsAppChatDrawer from '../components/WhatsAppChatDrawer';
 import CompanyAvatar from '../components/CompanyAvatar';
 import FunnelStatusBadge from '../components/FunnelStatusBadge';
 
@@ -37,8 +37,8 @@ export default function CRMPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // WhatsApp modal state
-  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  // WhatsApp drawer state
+  const [whatsAppDrawerOpen, setWhatsAppDrawerOpen] = useState(false);
   const [whatsAppTargetLead, setWhatsAppTargetLead] = useState(null);
 
   // Filter state
@@ -111,7 +111,7 @@ export default function CRMPage() {
   const handleOpenWhatsApp = (lead, e) => {
     if (e) e.stopPropagation();
     setWhatsAppTargetLead(lead);
-    setWhatsAppModalOpen(true);
+    setWhatsAppDrawerOpen(true);
   };
 
   const filteredLeads = useMemo(() => {
@@ -548,16 +548,15 @@ export default function CRMPage() {
         )
       )}
 
-      {/* Evolution WhatsApp Modal */}
-      <WhatsAppModal
-        isOpen={whatsAppModalOpen}
+      {/* Evolution WhatsApp Chat Drawer */}
+      <WhatsAppChatDrawer
+        isOpen={whatsAppDrawerOpen}
         onClose={() => {
-          setWhatsAppModalOpen(false);
+          setWhatsAppDrawerOpen(false);
           setWhatsAppTargetLead(null);
         }}
         lead={whatsAppTargetLead}
-        selectedLeads={whatsAppTargetLead ? [whatsAppTargetLead] : []}
-        onDispatchComplete={() => {
+        onMessageSent={() => {
           setLeads(mockDataStore.getLeadsSync());
         }}
       />

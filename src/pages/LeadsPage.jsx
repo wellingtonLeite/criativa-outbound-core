@@ -4,6 +4,7 @@ import { downloadCrmReportPdf } from '../lib/typstReportGenerator';
 import LeadDetailModal from '../components/LeadDetailModal';
 import MiningModal from '../components/MiningModal';
 import WhatsAppModal from '../components/WhatsAppModal';
+import WhatsAppChatDrawer from '../components/WhatsAppChatDrawer';
 import CompanyAvatar from '../components/CompanyAvatar';
 import ValidationStatusBadge from '../components/ValidationStatusBadge';
 import FunnelStatusBadge from '../components/FunnelStatusBadge';
@@ -35,6 +36,10 @@ export default function LeadsPage() {
   const [isMiningModalOpen, setIsMiningModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [whatsAppTargetLead, setWhatsAppTargetLead] = useState(null);
+
+  // WhatsApp Single Chat Drawer state
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [chatDrawerTargetLead, setChatDrawerTargetLead] = useState(null);
 
   // Selection state for bulk operations
   const [selectedLeadIds, setSelectedLeadIds] = useState(new Set());
@@ -175,8 +180,8 @@ export default function LeadsPage() {
 
   const handleOpenSingleWhatsApp = (lead, e) => {
     if (e) e.stopPropagation();
-    setWhatsAppTargetLead(lead);
-    setIsWhatsAppModalOpen(true);
+    setChatDrawerTargetLead(lead);
+    setIsChatDrawerOpen(true);
   };
 
   const handleOpenBulkWhatsApp = () => {
@@ -463,7 +468,20 @@ export default function LeadsPage() {
         }}
       />
 
-      {/* Evolution WhatsApp Modal */}
+      {/* Evolution WhatsApp Chat Drawer for Individual Lead */}
+      <WhatsAppChatDrawer
+        isOpen={isChatDrawerOpen}
+        onClose={() => {
+          setIsChatDrawerOpen(false);
+          setChatDrawerTargetLead(null);
+        }}
+        lead={chatDrawerTargetLead}
+        onMessageSent={() => {
+          setLeads(mockDataStore.getLeadsSync());
+        }}
+      />
+
+      {/* Evolution WhatsApp Modal (Bulk Dispatches) */}
       <WhatsAppModal
         isOpen={isWhatsAppModalOpen}
         onClose={() => {

@@ -1,6 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { X, Linkedin, Twitter, Globe, Building2, Phone, Mail, Calendar, ShieldCheck, CheckCircle2, RotateCcw } from 'lucide-react';
-import { mockDataStore } from '../lib/mockDataStore';
+import { 
+  X, 
+  Linkedin, 
+  Twitter, 
+  Globe, 
+  Building2, 
+  Phone, 
+  Mail, 
+  Calendar, 
+  ShieldCheck, 
+  CheckCircle2, 
+  RotateCcw,
+  MessageSquare,
+  Send,
+  Zap,
+  CheckCheck
+} from 'lucide-react';
+import { mockDataStore, simulateIncomingLeadReply } from '../lib/mockDataStore';
+import { fetchMessageHistory } from '../lib/evolutionClient';
 import CompanyAvatar from './CompanyAvatar';
 import ValidationStatusBadge from './ValidationStatusBadge';
 import FunnelStatusBadge from './FunnelStatusBadge';
@@ -94,56 +111,96 @@ function InfoGrid({ data, fields, links }) {
   );
 }
 
-export default function LeadDetailModal({ lead, onClose }) {
+export default function LeadDetailModal({ lead: initialLead, onClose }) {
+  const [currentLead, setCurrentLead] = useState(initialLead);
   const [logs, setLogs] = useState([]);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'person' | 'company' | 'timeline' | 'raw'
+  const [messages, setMessages] = useState([]);
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'person' | 'company' | 'chat' | 'timeline' | 'raw'
+  const [simReplyText, setSimReplyText] = useState('Olá! Tenho interesse, podemos marcar uma demonstração nesta semana?');
+  const [simulating, setSimulating] = useState(false);
+
+  const reloadData = async (leadToFetch = currentLead) => {
+    if (!leadToFetch) return;
+    try {
+      const allLogs = await mockDataStore.getMockLogs(50);
+      const leadLogs = allLogs.filter(l => l.lead_id === leadToFetch.id || l.leads?.email === leadToFetch.email);
+      setLogs(leadLogs);
+
+      const msgs = await fetchMessageHistory('Criativa-Core-Outbound', leadToFetch.phone || leadToFetch.id);
+      setMessages(msgs || []);
+
+      const freshLead = await mockDataStore.getMockLeadById(leadToFetch.id);
+      if (freshLead) {
+        setCurrentLead(freshLead);
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar dados do lead:', err);
+    }
+  };
 
   useEffect(() => {
-    if (!lead) return;
-    const fetchLeadLogs = async () => {
-      const allLogs = await mockDataStore.getMockLogs(50);
-      const leadLogs = allLogs.filter(l => l.lead_id === lead.id || l.leads?.email === lead.email);
-      setLogs(leadLogs);
-    };
-    fetchLeadLogs();
-  }, [lead]);
+    if (!initialLead) return;
+    setCurrentLead(initialLead);
+    reloadData(initialLead);
+
+    const unsubscribe = mockDataStore.subscribe(() => {
+      reloadData(initialLead);
+    });
+
+    return () => unsubscribe();
+  }, [initialLead]);
 
   // Keyboard close on Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && lead) onClose();
+      if (e.key === 'Escape' && currentLead) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lead, onClose]);
+  }, [currentLead, onClose]);
 
-  if (!lead) return null;
+  if (!currentLead) return null;
 
-  const companyInfo = lead.company_info || {};
-  const personInfo = lead.person_info || {};
-  const fullName = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Lead B2B';
+  const companyInfo = currentLead.company_info || {};
+  const personInfo = currentLead.person_info || {};
+  const fullName = [currentLead.first_name, currentLead.last_name].filter(Boolean).join(' ') || 'Lead B2B';
 
   const personEntries = collectInfoEntries(personInfo, PERSON_FIELDS, PERSON_LINKS);
   const hasPersonInfo = personEntries.textEntries.length > 0 || personEntries.linkEntries.length > 0;
   const companyEntries = collectInfoEntries(companyInfo, COMPANY_FIELDS, COMPANY_LINKS);
   const hasCompanyInfo = companyEntries.textEntries.length > 0 || companyEntries.linkEntries.length > 0;
 
+  const handleSimulateReply = async (e) => {
+    if (e) e.preventDefault();
+    if (!simReplyText.trim() || simulating) return;
+
+    setSimulating(true);
+    try {
+      await simulateIncomingLeadReply(currentLead.id, simReplyText);
+      setSimReplyText('');
+    } catch (err) {
+      console.error('Erro ao simular resposta do lead:', err);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()} 
-        style={{ maxWidth: '640px', width: '92%', maxHeight: '90vh' }}
+        style={{ maxWidth: '680px', width: '94%', maxHeight: '92vh' }}
       >
         {/* Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <CompanyAvatar name={lead.company_name} logoUrl={companyInfo.logo_url} size={46} />
+            <CompanyAvatar name={currentLead.company_name} logoUrl={companyInfo.logo_url} size={46} />
             <div>
               <h2 style={{ fontSize: '1.25rem', marginBottom: '2px', color: '#fff' }}>{fullName}</h2>
               <p style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{lead.email}</span>
-                {lead.phone && <span>· {lead.phone}</span>}
+                <span>{currentLead.email}</span>
+                {currentLead.phone && <span>· {currentLead.phone}</span>}
               </p>
             </div>
           </div>
@@ -158,9 +215,10 @@ export default function LeadDetailModal({ lead, onClose }) {
         </div>
 
         {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', marginBottom: '20px', overflowX: 'auto' }}>
           {[
             { key: 'overview', label: 'Visão Geral' },
+            { key: 'chat', label: `WhatsApp (${messages.length})` },
             { key: 'person', label: 'Contato / Decisor' },
             { key: 'company', label: 'Empresa & CNPJ' },
             { key: 'timeline', label: `Histórico (${logs.length})` },
@@ -178,7 +236,8 @@ export default function LeadDetailModal({ lead, onClose }) {
                 fontSize: '0.8rem',
                 fontWeight: 500,
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
               }}
             >
               {tab.label}
@@ -192,56 +251,58 @@ export default function LeadDetailModal({ lead, onClose }) {
             <div className="form-grid">
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Empresa</label>
-                <p style={{ color: '#e2e8f0', fontWeight: 500 }}>{lead.company_name || '—'}</p>
+                <p style={{ color: '#e2e8f0', fontWeight: 500 }}>{currentLead.company_name || '—'}</p>
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">CNPJ</label>
-                <p style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{lead.cnpj || '—'}</p>
+                <p style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{currentLead.cnpj || '—'}</p>
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Receita Estimada</label>
-                <p style={{ color: '#10b981', fontWeight: 600 }}>{lead.revenue_estimated || '—'}</p>
+                <p style={{ color: '#10b981', fontWeight: 600 }}>{currentLead.revenue_estimated || '—'}</p>
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Campanha Associada</label>
-                <p style={{ color: '#e2e8f0' }}>{lead.campaigns?.name || '—'}</p>
+                <p style={{ color: '#e2e8f0' }}>{currentLead.campaigns?.name || '—'}</p>
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Higienização Reoon</label>
-                <ValidationStatusBadge status={lead.validation_status} />
+                <ValidationStatusBadge status={currentLead.validation_status} />
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Status no Funil</label>
-                <FunnelStatusBadge status={lead.funnel_status} />
+                <FunnelStatusBadge status={currentLead.funnel_status} />
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Step Atual da Cadência</label>
-                <p style={{ color: '#e2e8f0' }}>Step {lead.current_step ?? 0}</p>
+                <p style={{ color: '#e2e8f0' }}>Step {currentLead.current_step ?? 0}</p>
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Último Contato</label>
                 <p style={{ color: '#e2e8f0' }}>
-                  {lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleString('pt-BR') : 'Ainda não contatado'}
+                  {currentLead.last_contacted_at ? new Date(currentLead.last_contacted_at).toLocaleString('pt-BR') : 'Ainda não contatado'}
                 </p>
               </div>
             </div>
 
-            {lead.qualification_status && (
+            {currentLead.qualification_status && (
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Qualificação Comercial</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className="badge" style={{ background: 'rgba(0,212,255,0.12)', color: '#00d4ff' }}>
-                    Status: {lead.qualification_status.toUpperCase()}
+                    Status: {currentLead.qualification_status.toUpperCase()}
                   </span>
                   <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
-                    {lead.qualification_status === 'hot' ? 'Lead com alto engajamento e intenção de compra confirmada.' : 'Lead qualificado para nutrição e cadência ativa.'}
+                    {currentLead.qualification_status === 'lead_qualificado' || currentLead.qualification_status === 'qualified' || currentLead.qualification_status === 'hot'
+                      ? 'Lead com alto engajamento e intenção de compra confirmada via resposta direta.'
+                      : 'Lead qualificado para nutrição e cadência ativa.'}
                   </span>
                 </div>
               </div>
@@ -249,7 +310,103 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
         )}
 
-        {/* Tab 2: Person */}
+        {/* Tab 2: WhatsApp Chat & Webhook Simulator */}
+        {activeTab === 'chat' && (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Messages Stream Container */}
+            <div style={{
+              background: '#0d1418',
+              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)',
+              backgroundSize: '16px 16px',
+              borderRadius: '8px',
+              padding: '16px',
+              border: '1px solid rgba(255,255,255,0.06)',
+              minHeight: '220px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              {messages.length === 0 ? (
+                <div style={{ textAlign: 'center', margin: 'auto', color: '#64748b', fontSize: '0.82rem' }}>
+                  Nenhuma mensagem registrada com este contato ainda.
+                </div>
+              ) : (
+                messages.map((m) => {
+                  const isOutbound = m.from_me || m.direction === 'outbound';
+                  return (
+                    <div 
+                      key={m.id}
+                      style={{
+                        maxWidth: '82%',
+                        alignSelf: isOutbound ? 'flex-end' : 'flex-start',
+                        background: isOutbound ? '#005c4b' : '#202c33',
+                        color: '#e9edef',
+                        borderRadius: isOutbound ? '8px 8px 0px 8px' : '8px 8px 8px 0px',
+                        padding: '10px 14px',
+                        fontSize: '0.84rem',
+                        lineHeight: '1.4',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.7rem', color: isOutbound ? '#53bdeb' : '#00d4ff', fontWeight: 600, marginBottom: '2px' }}>
+                        {m.sender || (isOutbound ? 'Criativa Outbound' : fullName)}
+                      </div>
+                      <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{m.text || m.message?.conversation}</p>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '0.68rem', color: '#8696a0' }}>
+                        <span>{new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        {isOutbound && <CheckCheck size={14} color="#53bdeb" />}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Inbound Webhook Reply Simulator */}
+            <form onSubmit={handleSimulateReply} style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.76rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                  <Zap size={14} /> Simular Webhook Inbound (Resposta do Lead)
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  Avança funil para 'responded' / 'lead_qualificado' em tempo real
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={simReplyText}
+                  onChange={e => setSimReplyText(e.target.value)}
+                  placeholder="Texto da resposta simulada do lead..."
+                  style={{ fontSize: '0.82rem', flex: 1 }}
+                />
+                <button 
+                  type="submit" 
+                  disabled={simulating || !simReplyText.trim()}
+                  className="btn btn-sm btn-primary"
+                  style={{ background: '#10b981', color: '#0a0a0f', fontWeight: 600, whiteSpace: 'nowrap' }}
+                >
+                  <Send size={14} />
+                  {simulating ? 'Processando...' : 'Receber Webhook'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Tab 3: Person */}
         {activeTab === 'person' && (
           <div className="animate-fade-in">
             {hasPersonInfo ? (
@@ -260,7 +417,7 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
         )}
 
-        {/* Tab 3: Company */}
+        {/* Tab 4: Company */}
         {activeTab === 'company' && (
           <div className="animate-fade-in">
             {hasCompanyInfo ? (
@@ -271,7 +428,7 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
         )}
 
-        {/* Tab 4: Timeline */}
+        {/* Tab 5: Timeline */}
         {activeTab === 'timeline' && (
           <div className="animate-fade-in">
             {logs.length === 0 ? (
@@ -309,14 +466,14 @@ export default function LeadDetailModal({ lead, onClose }) {
           </div>
         )}
 
-        {/* Tab 5: Raw Data */}
+        {/* Tab 6: Raw Data */}
         {activeTab === 'raw' && (
           <div className="animate-fade-in">
             <pre style={{
               padding: '14px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px',
               fontSize: '0.72rem', color: '#94a3b8', maxHeight: '320px', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
             }}>
-              {JSON.stringify({ lead_id: lead.id, company: lead.company_name, raw_data: lead.raw_data || lead }, null, 2)}
+              {JSON.stringify({ lead_id: currentLead.id, company: currentLead.company_name, raw_data: currentLead.raw_data || currentLead }, null, 2)}
             </pre>
           </div>
         )}
