@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { callApolloProxy } from '../lib/apolloClient';
-import { verifyEmailStatus, verifyEmailsBulk, callReoonProxy } from '../lib/reoonClient';
+import { mockDataStore } from '../lib/mockDataStore';
+import { triggerMiningJob } from '../lib/miningClient';
+import { verifyEmailStatus, verifyEmailsBulk, cleanLeadsList } from '../lib/reacherClient';
 import { estimateApolloCredits } from '../lib/apolloClient';
 import LeadDetailModal from '../components/LeadDetailModal';
 import CompanyAvatar from '../components/CompanyAvatar';
@@ -108,15 +108,11 @@ export default function CampaignBuilderPage() {
 
   const [selectedLead, setSelectedLead] = useState(null);
   const [scrapedTodayCount, setScrapedTodayCount] = useState(0);
-  const [reoonBalance, setReoonBalance] = useState(null);
   const [apolloEstimate, setApolloEstimate] = useState(null);
 
   useEffect(() => { fetchData(); }, [id]);
   useEffect(() => { fetchLeads(); }, [id]);
   useEffect(() => { fetchScrapedTodayCount(); }, [id]);
-  useEffect(() => {
-    callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
-  }, []);
   useEffect(() => {
     if (!campaign?.user_id) return;
     estimateApolloCredits(campaign.user_id).then(setApolloEstimate).catch(() => setApolloEstimate(null));
@@ -801,28 +797,29 @@ export default function CampaignBuilderPage() {
           </button>
         </div>
 
-        {/* Progresso da higienização de e-mails (Reoon) — visível em qualquer sub-aba */}
+        {/* Progresso da higienização de e-mails (Reacher) — visível em qualquer sub-aba */}
         {reoonProgress && (
-          <div className="glass-card" style={{
-            display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', marginBottom: '20px',
-            border: '1px solid rgba(16,185,129,0.35)', background: 'rgba(16,185,129,0.07)'
-          }}>
-            <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px', flexShrink: 0 }}></div>
-            <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>
-                Higienizando e-mails na Reoon{reoonProgress.total ? ` — ${reoonProgress.total} contato${reoonProgress.total > 1 ? 's' : ''}` : ''}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                {reoonProgress.status === 'creating' && 'Enviando e-mails para verificação...'}
-                {(reoonProgress.status === 'waiting') && 'Na fila de processamento da Reoon...'}
+          <div className="mb-6 p-4 rounded-xl border" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
+            <div className="flex items-center gap-3 mb-2">
+              {reoonProgress.status === 'running' || reoonProgress.status === 'creating' || reoonProgress.status === 'waiting' ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-500"></div>
+              ) : (
+                <CheckCircle2 size={20} className="text-emerald-500" />
+              )}
+              <h4 className="font-medium text-emerald-400">
+                Higienizando e-mails no Reacher{reoonProgress.total ? ` — ${reoonProgress.total} contato${reoonProgress.total > 1 ? 's' : ''}` : ''}
+              </h4>
+            </div>
+            <p className="text-sm text-slate-400 ml-8">
+                {reoonProgress.status === 'creating' && 'Iniciando validação SMTP...'}
+                {(reoonProgress.status === 'waiting') && 'Aguardando fila do Reacher...'}
                 {reoonProgress.status === 'running' && (
-                  `Verificando${reoonProgress.checked != null ? ` — ${reoonProgress.checked}/${reoonProgress.total} checados` : ''}${reoonProgress.progress != null ? ` (${Math.round(reoonProgress.progress)}%)` : ''}`
+                  `Verificando handshakes${reoonProgress.checked != null ? ` — ${reoonProgress.checked}/${reoonProgress.total} checados` : ''}`
                 )}
                 {reoonProgress.status === 'completed' && 'Concluído — salvando resultados...'}
                 {reoonProgress.status === 'failed' && 'Falha na verificação — os e-mails ficarão como "pendente" (pode revalidar depois).'}
                 {reoonProgress.status === 'timeout' && 'Demorando mais que o esperado — os e-mails não confirmados ficarão "pendente" (revalide depois).'}
-              </div>
-            </div>
+            </p>
           </div>
         )}
 

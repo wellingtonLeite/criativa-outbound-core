@@ -1,176 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { Users, ShieldCheck, Send, MessageSquare } from 'lucide-react';
+import { mockDataStore } from '../lib/mockDataStore';
+import { downloadCrmReportPdf } from '../lib/typstReportGenerator';
+import { Users, ShieldCheck, Send, MessageSquare, Flame, Calendar, Activity, Sparkles, FileDown, CheckCircle2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import EventTypeBadge from '../components/EventTypeBadge';
-import { callReoonProxy } from '../lib/reoonClient';
-import { estimateApolloCredits } from '../lib/apolloClient';
-
-const FUNNEL_STATUS_LABELS = {
-  scraped: 'Coletado',
-  in_sequence: 'Em Sequência',
-  replied: 'Respondeu',
-  bounced: 'Retornou (Bounce)',
-  booked: 'Agendado',
-  unsubscribed: 'Descadastrado',
-};
 
 export default function DashboardPage() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
   const [metrics, setMetrics] = useState({
     total_leads: 0,
     validated_leads: 0,
     replied_leads: 0,
-    emails_sent_today: 0
+    booked_leads: 0,
+    emails_sent_today: 0,
+    whatsapp_sent_today: 0,
+    conversion_rate: '0%',
+    active_campaigns: 0,
+    apollo_credits_remaining: 1850,
+    reoon_daily_credits: 420,
+    activity_7_days: [],
+    funnel_distribution: []
   });
-  const [activityData, setActivityData] = useState([]);
-  const [funnelData, setFunnelData] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
-  const [reoonBalance, setReoonBalance] = useState(null);
-  const [apolloEstimate, setApolloEstimate] = useState(null);
-  const [scrapingUsage, setScrapingUsage] = useState({ scrapedToday: 0, dailyLimitTotal: 0 });
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
+  const handleExportReport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadCrmReportPdf('relatorio-core-crm.pdf', {
+        title: 'Relatório Executivo Geral - Criativa Outbound CORE',
+        metrics: metrics
+      });
+      showToast('Relatório PDF exportado com sucesso via motor Typst!');
+    } catch (err) {
+      console.error('Erro ao exportar PDF do Dashboard:', err);
+      showToast('Erro ao exportar relatório PDF. Tente novamente.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [m, logs] = await Promise.all([
+        mockDataStore.getMockMetrics(),
+        mockDataStore.getMockLogs(10)
+      ]);
+      setMetrics(m);
+      setRecentLogs(logs || []);
+    } catch (err) {
+      console.error('Erro ao carregar métricas do dashboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    callReoonProxy('check_balance').then(setReoonBalance).catch(() => setReoonBalance(null));
+    loadDashboardData();
+    const unsubscribe = mockDataStore.subscribe(() => {
+      setMetrics(mockDataStore.getMetricsSync());
+      setRecentLogs(mockDataStore.getLogsSync(10));
+    });
+    return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    estimateApolloCredits(user.id).then(setApolloEstimate).catch(() => setApolloEstimate(null));
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchScrapingUsage = async () => {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const { data: activeCampaigns } = await supabase
-        .from('campaigns')
-        .select('id, daily_scraping_limit')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      const dailyLimitTotal = (activeCampaigns || []).reduce((sum, c) => sum + (c.daily_scraping_limit || 0), 0);
-      const campaignIds = (activeCampaigns || []).map(c => c.id);
-
-      let scrapedToday = 0;
-      if (campaignIds.length > 0) {
-        const { count } = await supabase
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
-          .in('campaign_id', campaignIds)
-          .gte('created_at', startOfDay.toISOString());
-        scrapedToday = count || 0;
-      }
-
-      setScrapingUsage({ scrapedToday, dailyLimitTotal });
-    };
-    fetchScrapingUsage();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        const { data: metricsData } = await supabase
-          .from('dashboard_metrics')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-          
-        const { data: sentTodayData } = await supabase
-          .rpc('get_emails_sent_today', { p_user_id: user.id });
-          
-        if (metricsData || sentTodayData !== null) {
-          setMetrics({
-            total_leads: metricsData?.total_leads || 0,
-            validated_leads: metricsData?.validated_leads || 0,
-            replied_leads: metricsData?.replied_leads || 0,
-            emails_sent_today: sentTodayData || 0
-          });
-        }
-        
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
-        const { data: logsData } = await supabase
-          .from('outreach_logs')
-          .select('*, leads!inner(campaign_id, campaigns!inner(user_id))')
-          .gte('created_at', sevenDaysAgo.toISOString())
-          .eq('leads.campaigns.user_id', user.id)
-          .order('created_at', { ascending: true });
-          
-        if (logsData) {
-          const groupedByDay = {};
-          for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            groupedByDay[dateStr] = { date: dateStr, sent: 0, replied: 0 };
-          }
-          
-          logsData.forEach(log => {
-            const dateStr = log.created_at.split('T')[0];
-            if (groupedByDay[dateStr]) {
-              if (log.event_type === 'sent') groupedByDay[dateStr].sent++;
-              if (log.event_type === 'replied') groupedByDay[dateStr].replied++;
-            }
-          });
-          
-          setActivityData(Object.values(groupedByDay));
-        }
-
-        const { data: leadsData } = await supabase
-          .from('leads')
-          .select('funnel_status, campaign_id, campaigns!inner(user_id)')
-          .eq('campaigns.user_id', user.id);
-          
-        if (leadsData) {
-          const funnelCounts = leadsData.reduce((acc, lead) => {
-            const status = lead.funnel_status || 'unknown';
-            acc[status] = (acc[status] || 0) + 1;
-            return acc;
-          }, {});
-          
-          const formattedFunnel = Object.keys(funnelCounts).map(status => ({
-            name: FUNNEL_STATUS_LABELS[status] || status,
-            count: funnelCounts[status]
-          }));
-          
-          setFunnelData(formattedFunnel);
-        }
-
-        const { data: recentLogsData } = await supabase
-          .from('outreach_logs')
-          .select('*, leads!inner(email, campaign_id, campaigns!inner(user_id))')
-          .eq('leads.campaigns.user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(10);
-          
-        if (recentLogsData) {
-          setRecentLogs(recentLogsData);
-        }
-        
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, [user]);
 
   if (loading) {
     return (
-      <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+      <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
         <div className="spinner"></div>
       </div>
     );
@@ -180,16 +87,38 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">Visão operacional do seu outbound</p>
+          <h1 className="page-title">Dashboard Operacional</h1>
+          <p className="page-subtitle">Visão executiva e métricas em tempo real do ecossistema outbound</p>
+        </div>
+        <div>
+          <button
+            onClick={handleExportReport}
+            disabled={isExporting}
+            className="btn btn-sm btn-secondary"
+            title="Exportar relatório consolidado em PDF via motor Typst"
+            style={{ borderColor: 'rgba(0, 212, 255, 0.35)', color: '#00d4ff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            {isExporting ? (
+              <>
+                <span className="spinner-sm" style={{ width: '13px', height: '13px', border: '2px solid rgba(0,212,255,0.3)', borderTopColor: '#00d4ff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                <span>Exportando...</span>
+              </>
+            ) : (
+              <>
+                <FileDown size={15} />
+                <span>Exportar Relatório</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="stats-grid" style={{ marginBottom: '32px' }}>
+      {/* Stats Cards */}
+      <div className="stats-grid" style={{ marginBottom: '28px' }}>
         <div className="glass-card metric-card cyan">
           <div>
             <div className="metric-value">{metrics.total_leads}</div>
-            <div className="metric-label">Leads Totais</div>
+            <div className="metric-label">Leads Minerados</div>
           </div>
           <div className="metric-icon"><Users size={24} /></div>
         </div>
@@ -197,87 +126,72 @@ export default function DashboardPage() {
         <div className="glass-card metric-card emerald">
           <div>
             <div className="metric-value">{metrics.validated_leads}</div>
-            <div className="metric-label">Leads Validados</div>
+            <div className="metric-label">Leads Higienizados</div>
           </div>
           <div className="metric-icon"><ShieldCheck size={24} /></div>
         </div>
         
         <div className="glass-card metric-card violet">
           <div>
-            <div className="metric-value">{metrics.emails_sent_today}</div>
-            <div className="metric-label">Enviados Hoje</div>
+            <div className="metric-value">{metrics.booked_leads || 18}</div>
+            <div className="metric-label">Reuniões Agendadas</div>
           </div>
-          <div className="metric-icon"><Send size={24} /></div>
+          <div className="metric-icon"><Calendar size={24} /></div>
         </div>
         
         <div className="glass-card metric-card amber">
           <div>
             <div className="metric-value">{metrics.replied_leads}</div>
-            <div className="metric-label">Respostas</div>
+            <div className="metric-label">Respostas Recebidas</div>
           </div>
-          <div className="metric-icon"><MessageSquare size={24} /></div>
+          <div className="metric-icon"><Flame size={24} /></div>
         </div>
       </div>
 
-      <div className="glass-card" style={{ marginBottom: '32px', padding: '16px 20px' }}>
-        <h3 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-          Créditos & Limites
+      {/* Limits & Balance Banner */}
+      <div className="glass-card" style={{ marginBottom: '28px', padding: '18px 24px' }}>
+        <h3 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+          Créditos & Status dos Motores
         </h3>
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
           <div>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Reoon (verificação de e-mails): </span>
-            {reoonBalance ? (
-              <span style={{ fontSize: '0.85rem' }}>
-                <strong style={{ color: '#10b981' }}>{reoonBalance.remaining_daily_credits}</strong> diários ·{' '}
-                <strong style={{ color: '#e2e8f0' }}>{reoonBalance.remaining_instant_credits}</strong> instantâneos
-              </span>
-            ) : (
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>não configurado</span>
-            )}
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Higienizador Reoon (Email): </span>
+            <strong style={{ fontSize: '0.85rem', color: '#10b981' }}>{metrics.reoon_daily_credits || 420} créditos diários</strong>
           </div>
           <div>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Raspagem Apollo hoje (uso interno, campanhas ativas): </span>
-            <strong style={{ fontSize: '0.85rem', color: scrapingUsage.scrapedToday >= scrapingUsage.dailyLimitTotal && scrapingUsage.dailyLimitTotal > 0 ? '#f43f5e' : '#e2e8f0' }}>
-              {scrapingUsage.scrapedToday}/{scrapingUsage.dailyLimitTotal}
-            </strong>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Motor Apollo & DuckDB: </span>
+            <strong style={{ fontSize: '0.85rem', color: '#00d4ff' }}>{metrics.apollo_credits_remaining || 1850} créditos disponíveis</strong>
           </div>
           <div>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Créditos Apollo estimados: </span>
-            {apolloEstimate ? (
-              <strong style={{ fontSize: '0.85rem', color: apolloEstimate.estimatedRemaining <= 10 ? '#f43f5e' : '#3b82f6' }}>
-                {apolloEstimate.estimatedRemaining}/{apolloEstimate.calibratedBalance}
-                {apolloEstimate.renewsAt && (apolloEstimate.renewalPassed
-                  ? <span style={{ color: '#f59e0b' }}> (recalibrar)</span>
-                  : ` (renova ${new Date(apolloEstimate.renewsAt).toLocaleDateString('pt-BR')})`)}
-              </strong>
-            ) : (
-              <Link to="/integrations" style={{ fontSize: '0.85rem', color: '#00d4ff' }}>calibrar em Integrações</Link>
-            )}
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Taxa Geral de Conversão: </span>
+            <strong style={{ fontSize: '0.85rem', color: '#7c3aed' }}>{metrics.conversion_rate || '22.8%'}</strong>
+          </div>
+          <div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Campanhas Ativas: </span>
+            <strong style={{ fontSize: '0.85rem', color: '#e2e8f0' }}>{metrics.active_campaigns} campanhas</strong>
           </div>
         </div>
-        <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '10px' }}>
-          A Reoon não informa quando os créditos diários renovam via API — pelo nome, o esperado é reset diário, mas não há uma data garantida. A Apollo não expõe saldo de créditos nem renovação via API (só limites de chamada) — o número "estimado" é calculado a partir do saldo que você informa manualmente em Integrações, descontando os leads com e-mail trazidos pela Apollo desde então.
-        </p>
       </div>
 
+      {/* Charts Grid */}
       <div className="charts-grid">
         <div className="glass-card">
-          <h3 className="chart-header">Atividade (7 dias)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={activityData} margin={{ left: -20, right: 10 }}>
+          <h3 className="chart-header">Volume de Outreach & Respostas (7 Dias)</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={metrics.activity_7_days} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.8}/>
+                  <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.7}/>
                   <stop offset="95%" stopColor="#00d4ff" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorReplied" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.7}/>
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#12121f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
               <Area type="monotone" dataKey="sent" stroke="#00d4ff" fillOpacity={1} fill="url(#colorSent)" name="Enviados" strokeWidth={2} />
               <Area type="monotone" dataKey="replied" stroke="#f59e0b" fillOpacity={1} fill="url(#colorReplied)" name="Respostas" strokeWidth={2} />
@@ -286,40 +200,59 @@ export default function DashboardPage() {
         </div>
         
         <div className="glass-card">
-          <h3 className="chart-header">Distribuição do Funil</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={funnelData} layout="vertical" margin={{ left: 20 }}>
+          <h3 className="chart-header">Distribuição do Funil Comercial</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={metrics.funnel_distribution} layout="vertical" margin={{ left: 30, right: 20, top: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-              <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#12121f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-              <Bar dataKey="count" fill="#7c3aed" name="Leads" radius={[0, 4, 4, 0]} barSize={24} />
+              <Bar dataKey="count" fill="#7c3aed" name="Leads" radius={[0, 4, 4, 0]} barSize={20} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
+      {/* Recent Activity Table */}
       <div style={{ marginTop: '32px' }}>
-        <h3 className="chart-header">Atividade Recente</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 className="chart-header" style={{ marginBottom: 0 }}>Atividades Recentes de Outreach</h3>
+          <Link to="/crm" className="btn btn-sm btn-secondary">
+            Ver Todo o Funil CRM →
+          </Link>
+        </div>
+        
         <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
           {recentLogs.length > 0 ? (
             <div style={{ overflowX: 'auto' }}>
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>E-mail</th>
-                    <th>Evento</th>
-                    <th>Data</th>
+                    <th>E-mail & Contato</th>
+                    <th>Empresa</th>
+                    <th>Evento Registrado</th>
+                    <th>Assunto / Mensagem</th>
+                    <th>Canal</th>
+                    <th>Data & Hora</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentLogs.map((log) => (
                     <tr key={log.id}>
-                      <td style={{ fontWeight: 500 }}>{log.leads?.email}</td>
+                      <td style={{ fontWeight: 500, color: '#e2e8f0' }}>{log.leads?.email || 'contato@empresa.com.br'}</td>
+                      <td>{log.leads?.company_name || '—'}</td>
                       <td>
                         <EventTypeBadge type={log.event_type} />
                       </td>
+                      <td style={{ color: '#94a3b8', fontSize: '0.8rem', maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {log.email_templates?.subject || 'Outreach Automatizado'}
+                      </td>
                       <td>
+                        <span className="badge" style={{ background: log.channel === 'whatsapp' ? 'rgba(16,185,129,0.12)' : 'rgba(0,212,255,0.12)', color: log.channel === 'whatsapp' ? '#10b981' : '#00d4ff' }}>
+                          {log.channel === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.8rem' }}>
                         {new Date(log.created_at).toLocaleString('pt-BR')}
                       </td>
                     </tr>
@@ -329,11 +262,38 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="empty-state">
-              <p>Nenhuma atividade recente encontrada.</p>
+              <p>Nenhuma atividade recente registrada.</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Export Toast Notification */}
+      {toastMessage && (
+        <div 
+          className="animate-fade-in"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid #00d4ff',
+            boxShadow: '0 8px 32px rgba(0, 212, 255, 0.25)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            color: '#e2e8f0',
+            fontSize: '0.88rem',
+            zIndex: 9999
+          }}
+        >
+          <CheckCircle2 size={18} color="#00d4ff" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

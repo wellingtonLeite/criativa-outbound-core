@@ -12,6 +12,7 @@ import IntegrationsPage from './pages/IntegrationsPage';
 import CRMPage from './pages/CRMPage';
 import ProspectorPage from './pages/ProspectorPage';
 import LeadsPage from './pages/LeadsPage';
+import DiagnosticoCore from './pages/DiagnosticoCore';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
               <Route path="prospector" element={<ProspectorPage />} />
               <Route path="integrations" element={<IntegrationsPage />} />
               <Route path="crm" element={<CRMPage />} />
+              <Route path="diagnostico" element={<DiagnosticoCore />} />
             </Route>
           </Route>
         </Routes>
